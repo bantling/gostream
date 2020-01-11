@@ -1,0 +1,4 @@
+///////////////////////////////////////////////////////////////////////////////
+// stream is a very simple port of Java streaming to Go that purely functional
+// in a small code base
+package stream
