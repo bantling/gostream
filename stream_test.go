@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestArrayIterator(t *testing.T) {
-	ai := arrayIterator{array: []interface{}{1, 2, 3}}
+func TestStreamSliceIterator(t *testing.T) {
+	ai := sliceIterator{array: []interface{}{1, 2, 3}}
 	next, hasNext := ai.next()
 	assert.Equal(t, 1, next)
 	assert.True(t, hasNext)
@@ -22,8 +22,8 @@ func TestArrayIterator(t *testing.T) {
 	assert.False(t, hasNext)
 }
 
-func TestNewStream(t *testing.T) {
-	ai := arrayIterator{array: []interface{}{1, 2, 3}}
+func TestStreamNewStream(t *testing.T) {
+	ai := sliceIterator{array: []interface{}{1, 2, 3}}
 	s := NewStream(ai.next)
 	assert.Equal(t, []interface{}{1, 2, 3}, s.ToSlice())
 
@@ -31,7 +31,7 @@ func TestNewStream(t *testing.T) {
 	assert.Equal(t, []interface{}{3, 2, 1}, s.ToSlice())
 }
 
-func TestAllMatch(t *testing.T) {
+func TestStreamAllMatch(t *testing.T) {
 	fn := func(val interface{}) bool { return val.(int) < 3 }
 	s := NewStreamOf()
 	assert.True(t, s.AllMatch(fn))
@@ -46,7 +46,7 @@ func TestAllMatch(t *testing.T) {
 	assert.False(t, s.AllMatch(fn))
 }
 
-func TestAnyMatch(t *testing.T) {
+func TestStreamAnyMatch(t *testing.T) {
 	fn := func(val interface{}) bool { return val.(int) < 3 }
 	s := NewStreamOf()
 	assert.False(t, s.AnyMatch(fn))
@@ -58,14 +58,14 @@ func TestAnyMatch(t *testing.T) {
 	assert.True(t, s.AnyMatch(fn))
 }
 
-func TestConcat(t *testing.T) {
+func TestStreamConcat(t *testing.T) {
 	s1 := NewStreamOf(1, 2, 3)
 	s2 := NewStreamOf(4, 5, 6)
 	s3 := s1.Concat(s2)
 	assert.Equal(t, []interface{}{1, 2, 3, 4, 5, 6}, s3.ToSlice())
 }
 
-func TestCount(t *testing.T) {
+func TestStreamCount(t *testing.T) {
 	s := NewStreamOf()
 	assert.Equal(t, 0, s.Count())
 
@@ -76,7 +76,7 @@ func TestCount(t *testing.T) {
 	assert.Equal(t, 2, s.Count())
 }
 
-func TestDistinct(t *testing.T) {
+func TestStreamDistinct(t *testing.T) {
 	s := NewStreamOf()
 	assert.Equal(t, []interface{}(nil), s.Distinct().ToSlice())
 
@@ -87,7 +87,7 @@ func TestDistinct(t *testing.T) {
 	assert.Equal(t, []interface{}{1, 2}, s.Distinct().ToSlice())
 }
 
-func TestDuplicate(t *testing.T) {
+func TestStreamDuplicate(t *testing.T) {
 	s := NewStreamOf()
 	assert.Equal(t, []interface{}(nil), s.Duplicate().ToSlice())
 
@@ -98,7 +98,7 @@ func TestDuplicate(t *testing.T) {
 	assert.Equal(t, []interface{}{2, 1}, s.Duplicate().ToSlice())
 }
 
-func TestFilter(t *testing.T) {
+func TestStreamFilter(t *testing.T) {
 	fn := func(val interface{}) bool { return val.(int) < 3 }
 	s := NewStreamOf()
 	assert.Equal(t, []interface{}(nil), s.Filter(fn).ToSlice())
@@ -107,7 +107,7 @@ func TestFilter(t *testing.T) {
 	assert.Equal(t, []interface{}{1, 2}, s.Filter(fn).ToSlice())
 }
 
-func TestFirst(t *testing.T) {
+func TestStreamFirst(t *testing.T) {
 	s := NewStreamOf()
 
 	s = NewStreamOf(1)
@@ -128,7 +128,7 @@ func TestFirst(t *testing.T) {
 	assert.False(t, hasNext)
 }
 
-func TestForEach(t *testing.T) {
+func TestStreamForEach(t *testing.T) {
 	var vals []interface{}
 	fn := func(val interface{}) {
 		vals = append(vals, val)
@@ -148,7 +148,7 @@ func TestForEach(t *testing.T) {
 	assert.Equal(t, []interface{}{1, 2, 3}, vals)
 }
 
-func TestGroupBy(t *testing.T) {
+func TestStreamGroupBy(t *testing.T) {
 	fn := func(element interface{}) (key interface{}) {
 		return element.(int) % 3
 	}
@@ -162,7 +162,7 @@ func TestGroupBy(t *testing.T) {
 	assert.Equal(t, map[interface{}][]interface{}{0: []interface{}{0}, 1: []interface{}{1, 4}}, s.GroupBy(fn))
 }
 
-func TestIterate(t *testing.T) {
+func TestStreamIterate(t *testing.T) {
 	fn := func(val interface{}) interface{} {
 		return val.(int) * 2
 	}
@@ -175,7 +175,7 @@ func TestIterate(t *testing.T) {
 	assert.Equal(t, 8, val)
 }
 
-func TestLast(t *testing.T) {
+func TestStreamLast(t *testing.T) {
 	s := NewStreamOf()
 	next, hasNext := s.Last()
 	assert.False(t, hasNext)
@@ -191,7 +191,7 @@ func TestLast(t *testing.T) {
 	assert.True(t, hasNext)
 }
 
-func TestMap(t *testing.T) {
+func TestStreamMap(t *testing.T) {
 	fn := func(val interface{}) interface{} {
 		return strconv.Itoa(val.(int) * 2)
 	}
@@ -205,7 +205,7 @@ func TestMap(t *testing.T) {
 	assert.Equal(t, []interface{}{"2", "4"}, s.ToSlice())
 }
 
-func TestMax(t *testing.T) {
+func TestStreamMax(t *testing.T) {
 	fn := func(val1, val2 interface{}) bool {
 		return val1.(int) < val2.(int)
 	}
@@ -229,7 +229,7 @@ func TestMax(t *testing.T) {
 	assert.True(t, valid)
 }
 
-func TestMin(t *testing.T) {
+func TestStreamMin(t *testing.T) {
 	fn := func(val1, val2 interface{}) bool {
 		return val1.(int) < val2.(int)
 	}
@@ -253,7 +253,7 @@ func TestMin(t *testing.T) {
 	assert.True(t, valid)
 }
 
-func TestNoneMatch(t *testing.T) {
+func TestStreamNoneMatch(t *testing.T) {
 	fn := func(val interface{}) bool { return val.(int) < 3 }
 	s := NewStreamOf()
 	assert.True(t, s.NoneMatch(fn))
@@ -268,7 +268,7 @@ func TestNoneMatch(t *testing.T) {
 	assert.False(t, s.NoneMatch(fn))
 }
 
-func TestPeek(t *testing.T) {
+func TestStreamPeek(t *testing.T) {
 	var vals []interface{}
 	fn := func(val interface{}) {
 		vals = append(vals, val)
@@ -285,28 +285,20 @@ func TestPeek(t *testing.T) {
 	assert.Equal(t, vals, []interface{}{1, 2}, s.ToSlice())
 }
 
-func TestReduce(t *testing.T) {
-	fn := func(element1, element2 interface{}) interface{} {
-		return element1.(int) + element2.(int)
+func TestStreamReduce(t *testing.T) {
+	fn := func(accumulator, element2 interface{}) interface{} {
+		return accumulator.(int) + element2.(int)
 	}
 	s := NewStreamOf()
-	_, valid := s.Reduce(fn)
-	assert.False(t, valid)
-	sum, valid := s.Reduce(fn, 1)
-	assert.Equal(t, 1, sum)
-	assert.True(t, valid)
+	sum := s.Reduce(0, fn)
+	assert.Equal(t, 0, sum)
 
 	s = NewStreamOf(1, 2, 3)
-	sum, valid = s.Reduce(fn)
-	assert.Equal(t, 6, sum)
-	assert.True(t, valid)
-	s = NewStreamOf(1, 2, 3)
-	sum, valid = s.Reduce(fn, 1)
+	sum = s.Reduce(1, fn)
 	assert.Equal(t, 7, sum)
-	assert.True(t, valid)
 }
 
-func TestSkip(t *testing.T) {
+func TestStreamSkip(t *testing.T) {
 	s := NewStreamOf().Skip(0)
 	assert.Equal(t, []interface{}(nil), s.ToSlice())
 
@@ -326,7 +318,7 @@ func TestSkip(t *testing.T) {
 	assert.Equal(t, []interface{}{3, 4}, s.ToSlice())
 }
 
-func TestSorted(t *testing.T) {
+func TestStreamSorted(t *testing.T) {
 	fn := func(element1, element2 interface{}) bool {
 		return element1.(int) < element2.(int)
 	}
@@ -343,7 +335,7 @@ func TestSorted(t *testing.T) {
 	assert.Equal(t, []interface{}{1, 2, 3}, s.ToSlice())
 }
 
-func TestToMap(t *testing.T) {
+func TestStreamToMap(t *testing.T) {
 	fn := func(val interface{}) (k interface{}, v interface{}) {
 		return val, strconv.Itoa(val.(int))
 	}

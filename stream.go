@@ -4,14 +4,14 @@ import (
 	"sort"
 )
 
-// arrayIterator is an iterator for an array
-type arrayIterator struct {
+// sliceIterator is an iterator for an array
+type sliceIterator struct {
 	array []interface{}
 	index int
 }
 
-// Next iterates the array
-func (iter *arrayIterator) next() (interface{}, bool) {
+// next iterates the array
+func (iter *sliceIterator) next() (interface{}, bool) {
 	if iter.index < len(iter.array) {
 		next := iter.array[iter.index]
 		iter.index++
@@ -45,7 +45,7 @@ func NewStream(iter func() (interface{}, bool)) Stream {
 
 // Construct a new stream of an array of values
 func NewStreamOf(array ...interface{}) Stream {
-	arrayIter := arrayIterator{array: array}
+	arrayIter := sliceIterator{array: array}
 	return Stream{iterator: arrayIter.next}
 }
 
@@ -166,27 +166,25 @@ func (s Stream) ForEach(f func(element interface{})) {
 func (s Stream) GroupBy(f func(element interface{}) (key interface{})) map[interface{}][]interface{} {
 	m := map[interface{}][]interface{}{}
 
-	s.ForEach(func(val interface{}) {
-		k := f(val)
-		m[k] = append(m[k], val)
-	})
+	s.Reduce(
+		m,
+		func(accumulator interface{}, element interface{}) interface{} {
+			k := f(element)
+			m[k] = append(m[k], element)
+			return m
+		},
+	)
 
 	return m
 }
 
 // Iterate returns a stream of an iterative calculation, f(seed), f(f(seed)), ...
 func (s Stream) Iterate(seed interface{}, f func(interface{}) interface{}) Stream {
-	first := true
-	var acculumator interface{}
+	acculumator := seed
 
 	return Stream{
 		iterator: func() (interface{}, bool) {
-			if first {
-				first = false
-				acculumator = f(seed)
-			} else {
-				acculumator = f(acculumator)
-			}
+			acculumator = f(acculumator)
 
 			return acculumator, true
 		},
@@ -249,9 +247,9 @@ func (s Stream) Map(f func(element interface{}) interface{}) Stream {
 func (s Stream) Max(less func(element1, element2 interface{}) bool) (interface{}, bool) {
 	max, hasMax := s.iterator()
 	if hasMax {
-		s.ForEach(func(val interface{}) {
-			if less(max, val) {
-				max = val
+		s.ForEach(func(element interface{}) {
+			if less(max, element) {
+				max = element
 			}
 		})
 	}
@@ -263,9 +261,9 @@ func (s Stream) Max(less func(element1, element2 interface{}) bool) (interface{}
 func (s Stream) Min(less func(element1, element2 interface{}) bool) (interface{}, bool) {
 	min, hasMin := s.iterator()
 	if hasMin {
-		s.ForEach(func(val interface{}) {
-			if less(val, min) {
-				min = val
+		s.ForEach(func(element interface{}) {
+			if less(element, min) {
+				min = element
 			}
 		})
 	}
@@ -290,7 +288,7 @@ func (s Stream) NoneMatch(f func(element interface{}) bool) bool {
 func (s Stream) Peek(f func(interface{})) Stream {
 	return Stream{
 		iterator: func() (interface{}, bool) {
-			next, hasNext := s.First()
+			next, hasNext := s.iterator()
 			if hasNext {
 				f(next)
 			}
@@ -300,40 +298,23 @@ func (s Stream) Peek(f func(interface{})) Stream {
 	}
 }
 
-// Reduce uses a function to reduce the stream to a single optional value,
-// depending on the number of elements, and whether or not the optional identity is provided.
-//
-// If no identity provided:
-// 0 elements = invalid
-// 1 element = element1
-// 2 elements = f(element1, element2)
-// 3 or more elements = f(f(element1, element2), val3)...
-//
-// If an identity is provided:
-// 0 elements = identity
-// 1 element = f(identity, element1)
-// 2 or more elements = f(f(identity, element1), element2)...
+// Reduce uses a function to reduce the stream to a single value by iteratively executing a function
+// with the current accumulated value and the next stream element.
+// The identity provided is the initial accumulated value, which means the result type is the
+// same type as the initial value, which can be any type.
+// If there are no elements in the strea, the result is the identity.
+// Otherwise, the result is f(f(identity, element1), element2)...
 func (s Stream) Reduce(
-	f func(element1, element2 interface{}) interface{},
-	identityOpt ...interface{},
-) (interface{}, bool) {
-	var (
-		result interface{}
-		valid  bool
-	)
+	identity interface{},
+	f func(accumulator interface{}, element2 interface{}) interface{},
+) interface{} {
+	result := identity
 
-	if len(identityOpt) == 0 {
-		result, valid = s.iterator()
-	} else {
-		result = identityOpt[0]
-		valid = true
-	}
-
-	s.ForEach(func(next interface{}) {
-		result = f(result, next)
+	s.ForEach(func(element interface{}) {
+		result = f(result, element)
 	})
 
-	return result, valid
+	return result
 }
 
 // Skip returns a new stream that skips the first n elements
@@ -373,22 +354,23 @@ func (s Stream) Sorted(less func(element1, element2 interface{}) bool) Stream {
 					return less(sorted[i], sorted[j])
 				})
 
-				sortedIter = (&arrayIterator{array: sorted}).next
+				sortedIter = (&sliceIterator{array: sorted}).next
 				done = true
 			}
 
-			// Return first sorted element
+			// Return next sorted element
 			return sortedIter()
 		},
 	}
 }
 
-// ToMap returns a map of all elements by invoking the given function to a key/value pair for the map
+// ToMap returns a map of all elements by invoking the given function to get a key/value pair for the map.
+// It is up to the function to generate unique keys to prevent values from being overwritten.
 func (s Stream) ToMap(f func(interface{}) (key interface{}, value interface{})) map[interface{}]interface{} {
 	m := map[interface{}]interface{}{}
 
-	s.ForEach(func(val interface{}) {
-		k, v := f(val)
+	s.ForEach(func(element interface{}) {
+		k, v := f(element)
 		m[k] = v
 	})
 
@@ -399,8 +381,8 @@ func (s Stream) ToMap(f func(interface{}) (key interface{}, value interface{})) 
 func (s Stream) ToSlice() []interface{} {
 	var array []interface{}
 
-	s.ForEach(func(val interface{}) {
-		array = append(array, val)
+	s.ForEach(func(element interface{}) {
+		array = append(array, element)
 	})
 
 	return array
