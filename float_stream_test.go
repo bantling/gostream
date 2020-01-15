@@ -208,17 +208,59 @@ func TestFloatStreamLast(t *testing.T) {
 }
 
 func TestFloatStreamMap(t *testing.T) {
+	fn := func(element float64) float64 {
+		return element * 2
+	}
+	s := NewFloatStreamOf().Map(fn)
+	assert.Equal(t, []float64(nil), s.ToSlice())
+
+	s = NewFloatStreamOf(1).Map(fn)
+	assert.Equal(t, []float64{2}, s.ToSlice())
+
+	s = NewFloatStreamOf(1, 2).Map(fn)
+	assert.Equal(t, []float64{2, 4}, s.ToSlice())
+}
+
+func TestFloatStreamMapToInt(t *testing.T) {
+	fn := func(element float64) int {
+		return int(element * 2)
+	}
+	s := NewFloatStreamOf().MapToInt(fn)
+	assert.Equal(t, []int(nil), s.ToSlice())
+
+	s = NewFloatStreamOf(1).MapToInt(fn)
+	assert.Equal(t, []int{2}, s.ToSlice())
+
+	s = NewFloatStreamOf(1, 2).MapToInt(fn)
+	assert.Equal(t, []int{2, 4}, s.ToSlice())
+}
+
+func TestFloatStreamMapToObject(t *testing.T) {
 	fn := func(element float64) interface{} {
 		return strconv.FormatFloat(element*2, 'f', -1, 64)
 	}
-	s := NewFloatStreamOf().Map(fn)
+	s := NewFloatStreamOf().MapToObject(fn)
 	assert.Equal(t, []interface{}(nil), s.ToSlice())
 
-	s = NewFloatStreamOf(1).Map(fn)
+	s = NewFloatStreamOf(1).MapToObject(fn)
 	assert.Equal(t, []interface{}{"2"}, s.ToSlice())
 
-	s = NewFloatStreamOf(1, 2).Map(fn)
+	s = NewFloatStreamOf(1, 2).MapToObject(fn)
 	assert.Equal(t, []interface{}{"2", "4"}, s.ToSlice())
+}
+
+func TestFloatStreamMapToString(t *testing.T) {
+	fn := func(element float64) string {
+		return strconv.FormatFloat(element*2, 'f', -1, 64)
+	}
+	s := NewFloatStreamOf().MapToString(fn)
+	assert.Equal(t, []string(nil), s.ToSlice())
+
+	s = NewFloatStreamOf(1).MapToString(fn)
+	assert.Equal(t, []string{"2"}, s.ToSlice())
+
+	s = NewFloatStreamOf(1, 2).MapToString(fn)
+	assert.Equal(t, []string{"2", "4"}, s.ToSlice())
 }
 
 func TestFloatStreamMax(t *testing.T) {

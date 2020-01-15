@@ -233,8 +233,34 @@ func (s FloatStream) Limit(n int) FloatStream {
 	}
 }
 
-// Map each element to a new element, possibly of a different type
-func (s FloatStream) Map(f func(element float64) interface{}) Stream {
+// Map each element to another float
+func (s FloatStream) Map(f func(element float64) float64) FloatStream {
+	return FloatStream{
+		iterator: func() (float64, bool) {
+			if next, hasNext := s.iterator(); hasNext {
+				return f(next), true
+			}
+
+			return 0, false
+		},
+	}
+}
+
+// Map each element to an int
+func (s FloatStream) MapToInt(f func(element float64) int) IntStream {
+	return IntStream{
+		iterator: func() (int, bool) {
+			if next, hasNext := s.iterator(); hasNext {
+				return f(next), true
+			}
+
+			return 0, false
+		},
+	}
+}
+
+// Map each element to an object
+func (s FloatStream) MapToObject(f func(element float64) interface{}) Stream {
 	return Stream{
 		iterator: func() (interface{}, bool) {
 			if next, hasNext := s.iterator(); hasNext {
@@ -242,6 +268,19 @@ func (s FloatStream) Map(f func(element float64) interface{}) Stream {
 			}
 
 			return nil, false
+		},
+	}
+}
+
+// Map each element to a string
+func (s FloatStream) MapToString(f func(element float64) string) StringStream {
+	return StringStream{
+		iterator: func() (string, bool) {
+			if next, hasNext := s.iterator(); hasNext {
+				return f(next), true
+			}
+
+			return "", false
 		},
 	}
 }

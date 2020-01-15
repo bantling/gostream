@@ -194,17 +194,62 @@ func TestStringStreamLast(t *testing.T) {
 }
 
 func TestStringStreamMap(t *testing.T) {
-	fn := func(element string) interface{} {
+	fn := func(element string) string {
 		i, _ := strconv.Atoi(element)
 		return strconv.Itoa(i * 2)
 	}
 	s := NewStringStreamOf().Map(fn)
-	assert.Equal(t, []interface{}(nil), s.ToSlice())
+	assert.Equal(t, []string(nil), s.ToSlice())
 
 	s = NewStringStreamOf("1").Map(fn)
-	assert.Equal(t, []interface{}{"2"}, s.ToSlice())
+	assert.Equal(t, []string{"2"}, s.ToSlice())
 
 	s = NewStringStreamOf("1", "2").Map(fn)
+	assert.Equal(t, []string{"2", "4"}, s.ToSlice())
+}
+
+func TestStringStreamMapToFloat64(t *testing.T) {
+	fn := func(element string) float64 {
+		i, _ := strconv.ParseFloat(element, 64)
+		return i * 2
+	}
+	s := NewStringStreamOf().MapToFloat(fn)
+	assert.Equal(t, []float64(nil), s.ToSlice())
+
+	s = NewStringStreamOf("1").MapToFloat(fn)
+	assert.Equal(t, []float64{2}, s.ToSlice())
+
+	s = NewStringStreamOf("1", "2").MapToFloat(fn)
+	assert.Equal(t, []float64{2, 4}, s.ToSlice())
+}
+
+func TestStringStreamMapToInt(t *testing.T) {
+	fn := func(element string) int {
+		i, _ := strconv.Atoi(element)
+		return i * 2
+	}
+	s := NewStringStreamOf().MapToInt(fn)
+	assert.Equal(t, []int(nil), s.ToSlice())
+
+	s = NewStringStreamOf("1").MapToInt(fn)
+	assert.Equal(t, []int{2}, s.ToSlice())
+
+	s = NewStringStreamOf("1", "2").MapToInt(fn)
+	assert.Equal(t, []int{2, 4}, s.ToSlice())
+}
+
+func TestStringStreamMapToObject(t *testing.T) {
+	fn := func(element string) interface{} {
+		i, _ := strconv.Atoi(element)
+		return strconv.Itoa(i * 2)
+	}
+	s := NewStringStreamOf().MapToObject(fn)
+	assert.Equal(t, []interface{}(nil), s.ToSlice())
+
+	s = NewStringStreamOf("1").MapToObject(fn)
+	assert.Equal(t, []interface{}{"2"}, s.ToSlice())
+
+	s = NewStringStreamOf("1", "2").MapToObject(fn)
 	assert.Equal(t, []interface{}{"2", "4"}, s.ToSlice())
 }
 

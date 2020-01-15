@@ -243,6 +243,45 @@ func (s Stream) Map(f func(element interface{}) interface{}) Stream {
 	}
 }
 
+// MapToInt each element to an int
+func (s Stream) MapToInt(f func(element interface{}) int) IntStream {
+	return IntStream{
+		iterator: func() (int, bool) {
+			if next, hasNext := s.iterator(); hasNext {
+				return f(next), true
+			}
+
+			return 0, false
+		},
+	}
+}
+
+// MapToFloat each element to a float
+func (s Stream) MapToFloat(f func(element interface{}) float64) FloatStream {
+	return FloatStream{
+		iterator: func() (float64, bool) {
+			if next, hasNext := s.iterator(); hasNext {
+				return f(next), true
+			}
+
+			return 0, false
+		},
+	}
+}
+
+// MapToInt each element to an int
+func (s Stream) MapToString(f func(element interface{}) string) StringStream {
+	return StringStream{
+		iterator: func() (string, bool) {
+			if next, hasNext := s.iterator(); hasNext {
+				return f(next), true
+			}
+
+			return "", false
+		},
+	}
+}
+
 // Max returns an optional maximum value according to the provided comparator
 func (s Stream) Max(less func(element1, element2 interface{}) bool) (interface{}, bool) {
 	max, hasMax := s.iterator()
