@@ -110,9 +110,9 @@ func (s Stream) Count() int {
 func (s Stream) Distinct() Stream {
 	alreadyRead := map[interface{}]bool{}
 
-	return s.Filter(func(val interface{}) bool {
-		if !alreadyRead[val] {
-			alreadyRead[val] = true
+	return s.Filter(func(element interface{}) bool {
+		if !alreadyRead[element] {
+			alreadyRead[element] = true
 			return true
 		}
 
@@ -124,9 +124,9 @@ func (s Stream) Distinct() Stream {
 func (s Stream) Duplicate() Stream {
 	alreadyRead := map[interface{}]bool{}
 
-	return s.Filter(func(val interface{}) bool {
-		if !alreadyRead[val] {
-			alreadyRead[val] = true
+	return s.Filter(func(element interface{}) bool {
+		if !alreadyRead[element] {
+			alreadyRead[element] = true
 			return false
 		}
 
@@ -198,8 +198,8 @@ func (s Stream) Last() (interface{}, bool) {
 		hasNext bool
 	)
 
-	s.ForEach(func(val interface{}) {
-		next = val
+	s.ForEach(func(element interface{}) {
+		next = element
 		hasNext = true
 	})
 

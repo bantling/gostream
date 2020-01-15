@@ -32,7 +32,7 @@ func TestIntStreamNewIntStream(t *testing.T) {
 }
 
 func TestIntStreamAllMatch(t *testing.T) {
-	fn := func(val int) bool { return val < 3 }
+	fn := func(element int) bool { return element < 3 }
 	s := NewIntStreamOf()
 	assert.True(t, s.AllMatch(fn))
 
@@ -47,7 +47,7 @@ func TestIntStreamAllMatch(t *testing.T) {
 }
 
 func TestIntStreamAnyMatch(t *testing.T) {
-	fn := func(val int) bool { return val < 3 }
+	fn := func(element int) bool { return element < 3 }
 	s := NewIntStreamOf()
 	assert.False(t, s.AnyMatch(fn))
 
@@ -115,7 +115,7 @@ func TestIntStreamDuplicate(t *testing.T) {
 }
 
 func TestIntStreamFilter(t *testing.T) {
-	fn := func(val int) bool { return val < 3 }
+	fn := func(element int) bool { return element < 3 }
 	s := NewIntStreamOf()
 	assert.Equal(t, []int(nil), s.Filter(fn).ToSlice())
 
@@ -145,23 +145,23 @@ func TestIntStreamFirst(t *testing.T) {
 }
 
 func TestIntStreamForEach(t *testing.T) {
-	var vals []int
-	fn := func(val int) {
-		vals = append(vals, val)
+	var elements []int
+	fn := func(element int) {
+		elements = append(elements, element)
 	}
 	s := NewIntStreamOf()
 	s.ForEach(fn)
-	assert.Equal(t, []int(nil), vals)
+	assert.Equal(t, []int(nil), elements)
 
-	vals = nil
+	elements = nil
 	s = NewIntStreamOf(1)
 	s.ForEach(fn)
-	assert.Equal(t, []int{1}, vals)
+	assert.Equal(t, []int{1}, elements)
 
-	vals = nil
+	elements = nil
 	s = NewIntStreamOf(1, 2, 3)
 	s.ForEach(fn)
-	assert.Equal(t, []int{1, 2, 3}, vals)
+	assert.Equal(t, []int{1, 2, 3}, elements)
 }
 
 func TestIntStreamGroupBy(t *testing.T) {
@@ -179,16 +179,16 @@ func TestIntStreamGroupBy(t *testing.T) {
 }
 
 func TestIntStreamIterate(t *testing.T) {
-	fn := func(val int) int {
-		return val * 2
+	fn := func(element int) int {
+		return element * 2
 	}
 	s := NewIntStreamOf().Iterate(1, fn)
-	val, _ := s.First()
-	assert.Equal(t, 2, val)
-	val, _ = s.First()
-	assert.Equal(t, 4, val)
-	val, _ = s.First()
-	assert.Equal(t, 8, val)
+	element, _ := s.First()
+	assert.Equal(t, 2, element)
+	element, _ = s.First()
+	assert.Equal(t, 4, element)
+	element, _ = s.First()
+	assert.Equal(t, 8, element)
 }
 
 func TestIntStreamLast(t *testing.T) {
@@ -208,8 +208,8 @@ func TestIntStreamLast(t *testing.T) {
 }
 
 func TestIntStreamMap(t *testing.T) {
-	fn := func(val int) interface{} {
-		return strconv.Itoa(val * 2)
+	fn := func(element int) interface{} {
+		return strconv.Itoa(element * 2)
 	}
 	s := NewIntStreamOf().Map(fn)
 	assert.Equal(t, []interface{}(nil), s.ToSlice())
@@ -264,7 +264,7 @@ func TestIntStreamMin(t *testing.T) {
 }
 
 func TestIntStreamNoneMatch(t *testing.T) {
-	fn := func(val int) bool { return val < 3 }
+	fn := func(element int) bool { return element < 3 }
 	s := NewIntStreamOf()
 	assert.True(t, s.NoneMatch(fn))
 
@@ -279,20 +279,20 @@ func TestIntStreamNoneMatch(t *testing.T) {
 }
 
 func TestIntStreamPeek(t *testing.T) {
-	var vals []int
-	fn := func(val int) {
-		vals = append(vals, val)
+	var elements []int
+	fn := func(element int) {
+		elements = append(elements, element)
 	}
 	s := NewIntStreamOf().Peek(fn)
-	assert.Equal(t, vals, []int(nil), s.ToSlice())
+	assert.Equal(t, elements, []int(nil), s.ToSlice())
 
-	vals = nil
+	elements = nil
 	s = NewIntStreamOf(1).Peek(fn)
-	assert.Equal(t, vals, []int{1}, s.ToSlice())
+	assert.Equal(t, elements, []int{1}, s.ToSlice())
 
-	vals = nil
+	elements = nil
 	s = NewIntStreamOf(1, 2).Peek(fn)
-	assert.Equal(t, vals, []int{1, 2}, s.ToSlice())
+	assert.Equal(t, elements, []int{1, 2}, s.ToSlice())
 }
 
 func TestIntStreamReduce(t *testing.T) {
@@ -359,8 +359,8 @@ func TestIntStreamSum(t *testing.T) {
 }
 
 func TestIntStreamToMap(t *testing.T) {
-	fn := func(val int) (k interface{}, v interface{}) {
-		return val, strconv.Itoa(val)
+	fn := func(element int) (k interface{}, v interface{}) {
+		return element, strconv.Itoa(element)
 	}
 	s := NewIntStreamOf()
 	assert.Equal(t, map[interface{}]interface{}{}, s.ToMap(fn))

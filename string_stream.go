@@ -4,41 +4,41 @@ import (
 	"sort"
 )
 
-// intSliceIterator is an iterator for an array
-type intSliceIterator struct {
-	array []int
+// stringSliceIterator is an iterator for an array
+type stringSliceIterator struct {
+	array []string
 	index int
 }
 
 // next iterates the array
-func (iter *intSliceIterator) next() (int, bool) {
+func (iter *stringSliceIterator) next() (string, bool) {
 	if iter.index < len(iter.array) {
 		next := iter.array[iter.index]
 		iter.index++
 		return next, true
 	}
 
-	return 0, false
+	return "", false
 }
 
-// IntStream is the int specialization of Stream
-type IntStream struct {
-	iterator func() (int, bool)
+// StringStream is the string specialization of Stream
+type StringStream struct {
+	iterator func() (string, bool)
 }
 
-// Construct a new IntStream of an iterator
-func NewIntStream(iter func() (int, bool)) IntStream {
-	return IntStream{iterator: iter}
+// Construct a new StringStream of an iterator
+func NewStringStream(iter func() (string, bool)) StringStream {
+	return StringStream{iterator: iter}
 }
 
-// Construct a new IntStream of an array of values
-func NewIntStreamOf(array ...int) IntStream {
-	arrayIter := intSliceIterator{array: array}
-	return IntStream{iterator: arrayIter.next}
+// Construct a new StringStream of an array of values
+func NewStringStreamOf(array ...string) StringStream {
+	arrayIter := stringSliceIterator{array: array}
+	return StringStream{iterator: arrayIter.next}
 }
 
 // AllMatch is true if the predicate matches all elements with short-circuit logic
-func (s IntStream) AllMatch(f func(element int) bool) bool {
+func (s StringStream) AllMatch(f func(element string) bool) bool {
 	allMatch := true
 
 	for next, hasNext := s.iterator(); hasNext; next, hasNext = s.iterator() {
@@ -51,7 +51,7 @@ func (s IntStream) AllMatch(f func(element int) bool) bool {
 }
 
 // AnyMatch is true if the predicate matches any element with short-circuit logic
-func (s IntStream) AnyMatch(f func(element int) bool) bool {
+func (s StringStream) AnyMatch(f func(element string) bool) bool {
 	anyMatch := false
 
 	for next, hasNext := s.iterator(); hasNext; next, hasNext = s.iterator() {
@@ -63,28 +63,13 @@ func (s IntStream) AnyMatch(f func(element int) bool) bool {
 	return anyMatch
 }
 
-// Average returns an optional average value
-func (s IntStream) Average() (float64, bool) {
-	var (
-		sum int
-		count int
-	)
-
-	s.ForEach(func(element int) {
-		sum += element
-		count++
-	})
-
-	return float64(sum) / float64(count), count > 0
-}
-
-// Concat concatenates two IntStreams into a new IntStream that contains all the elements
-// of this IntStream followed by all elements of the IntStream passed
-func (s IntStream) Concat(os IntStream) IntStream {
+// Concat concatenates two StringStreams into a new StringStream that contains all the elements
+// of this StringStream followed by all elements of the StringStream passed
+func (s StringStream) Concat(os StringStream) StringStream {
 	firstIter := true
 
-	return IntStream{
-		iterator: func() (int, bool) {
+	return StringStream{
+		iterator: func() (string, bool) {
 			if firstIter {
 				if next, hasNext := s.iterator(); hasNext {
 					return next, hasNext
@@ -101,19 +86,19 @@ func (s IntStream) Concat(os IntStream) IntStream {
 }
 
 // Count returns the count of all elements
-func (s IntStream) Count() int {
+func (s StringStream) Count() int {
 	count := 0
 
-	s.ForEach(func(int) { count++ })
+	s.ForEach(func(string) { count++ })
 
 	return count
 }
 
 // Distinct returns the distinct elements only
-func (s IntStream) Distinct() IntStream {
-	alreadyRead := map[int]bool{}
+func (s StringStream) Distinct() StringStream {
+	alreadyRead := map[string]bool{}
 
-	return s.Filter(func(element int) bool {
+	return s.Filter(func(element string) bool {
 		if !alreadyRead[element] {
 			alreadyRead[element] = true
 			return true
@@ -124,10 +109,10 @@ func (s IntStream) Distinct() IntStream {
 }
 
 // Duplicates returns the duplicate elements only
-func (s IntStream) Duplicate() IntStream {
-	alreadyRead := map[int]bool{}
+func (s StringStream) Duplicate() StringStream {
+	alreadyRead := map[string]bool{}
 
-	return s.Filter(func(element int) bool {
+	return s.Filter(func(element string) bool {
 		if !alreadyRead[element] {
 			alreadyRead[element] = true
 			return false
@@ -137,28 +122,28 @@ func (s IntStream) Duplicate() IntStream {
 	})
 }
 
-// Filter returns a new IntStream of all elements that pass the given predicate
-func (s IntStream) Filter(f func(element int) bool) IntStream {
-	return IntStream{
-		iterator: func() (int, bool) {
+// Filter returns a new StringStream of all elements that pass the given predicate
+func (s StringStream) Filter(f func(element string) bool) StringStream {
+	return StringStream{
+		iterator: func() (string, bool) {
 			for next, hasNext := s.iterator(); hasNext; next, hasNext = s.iterator() {
 				if f(next) {
 					return next, true
 				}
 			}
 
-			return 0, false
+			return "", false
 		},
 	}
 }
 
 // First returns the optional first element
-func (s IntStream) First() (int, bool) {
+func (s StringStream) First() (string, bool) {
 	return s.iterator()
 }
 
-// ForEach invokes a consumer with each element of the IntStream
-func (s IntStream) ForEach(f func(element int)) {
+// ForEach invokes a consumer with each element of the StringStream
+func (s StringStream) ForEach(f func(element string)) {
 	for next, hasNext := s.iterator(); hasNext; next, hasNext = s.iterator() {
 		f(next)
 	}
@@ -166,12 +151,12 @@ func (s IntStream) ForEach(f func(element int)) {
 
 // GroupBy groups elements by executing the given function on each value to get a key,
 // and appending the element to the end of a slice associated with the key in the resulting map.
-func (s IntStream) GroupBy(f func(element int) (key interface{})) map[interface{}][]int {
-	m := map[interface{}][]int{}
+func (s StringStream) GroupBy(f func(element string) (key interface{})) map[interface{}][]string {
+	m := map[interface{}][]string{}
 
 	s.Reduce(
 		m,
-		func(accumulator interface{}, element int) interface{} {
+		func(accumulator interface{}, element string) interface{} {
 			k := f(element)
 			m[k] = append(m[k], element)
 			return m
@@ -181,12 +166,12 @@ func (s IntStream) GroupBy(f func(element int) (key interface{})) map[interface{
 	return m
 }
 
-// Iterate returns a IntStream of an iterative calculation, f(seed), f(f(seed)), ...
-func (s IntStream) Iterate(seed int, f func(int) int) IntStream {
+// Iterate returns a StringStream of an iterative calculation, f(seed), f(f(seed)), ...
+func (s StringStream) Iterate(seed string, f func(string) string) StringStream {
 	acculumator := seed
 
-	return IntStream{
-		iterator: func() (int, bool) {
+	return StringStream{
+		iterator: func() (string, bool) {
 			acculumator = f(acculumator)
 
 			return acculumator, true
@@ -195,13 +180,13 @@ func (s IntStream) Iterate(seed int, f func(int) int) IntStream {
 }
 
 // Last returns the optional last element
-func (s IntStream) Last() (int, bool) {
+func (s StringStream) Last() (string, bool) {
 	var (
-		next    int
+		next    string
 		hasNext bool
 	)
 
-	s.ForEach(func(element int) {
+	s.ForEach(func(element string) {
 		next = element
 		hasNext = true
 	})
@@ -209,21 +194,21 @@ func (s IntStream) Last() (int, bool) {
 	return next, hasNext
 }
 
-// Limit returns a new IntStream that only iterates the first n elements, ignoring the rest
-func (s IntStream) Limit(n int) IntStream {
+// Limit returns a new StringStream that only iterates the first n elements, ignoring the rest
+func (s StringStream) Limit(n int) StringStream {
 	elementsRead := 0
 	done := false
 
-	return IntStream{
-		iterator: func() (int, bool) {
+	return StringStream{
+		iterator: func() (string, bool) {
 			if done {
-				return 0, false
+				return "", false
 			}
 
 			next, hasNext := s.iterator()
 			if !hasNext {
 				done = true
-				return 0, false
+				return "", false
 			}
 
 			elementsRead++
@@ -234,7 +219,7 @@ func (s IntStream) Limit(n int) IntStream {
 }
 
 // Map each element to a new element, possibly of a different type
-func (s IntStream) Map(f func(element int) interface{}) Stream {
+func (s StringStream) Map(f func(element string) interface{}) Stream {
 	return Stream{
 		iterator: func() (interface{}, bool) {
 			if next, hasNext := s.iterator(); hasNext {
@@ -247,10 +232,10 @@ func (s IntStream) Map(f func(element int) interface{}) Stream {
 }
 
 // Max returns an optional maximum value according to the provided comparator
-func (s IntStream) Max() (int, bool) {
+func (s StringStream) Max() (string, bool) {
 	max, hasMax := s.iterator()
 	if hasMax {
-		s.ForEach(func(element int) {
+		s.ForEach(func(element string) {
 			if max < element {
 				max = element
 			}
@@ -261,10 +246,10 @@ func (s IntStream) Max() (int, bool) {
 }
 
 // Min returns an optional minimum value according to the provided comparator
-func (s IntStream) Min() (int, bool) {
+func (s StringStream) Min() (string, bool) {
 	min, hasMin := s.iterator()
 	if hasMin {
-		s.ForEach(func(element int) {
+		s.ForEach(func(element string) {
 			if element < min {
 				min = element
 			}
@@ -275,7 +260,7 @@ func (s IntStream) Min() (int, bool) {
 }
 
 // NoneMatch is true if the predicate matches none of the elements with short-circuit logic
-func (s IntStream) NoneMatch(f func(element int) bool) bool {
+func (s StringStream) NoneMatch(f func(element string) bool) bool {
 	noneMatch := true
 
 	for next, hasNext := s.iterator(); hasNext; next, hasNext = s.iterator() {
@@ -288,9 +273,9 @@ func (s IntStream) NoneMatch(f func(element int) bool) bool {
 }
 
 // Peek calls a function to examine each value and perform an additional operation
-func (s IntStream) Peek(f func(int)) IntStream {
-	return IntStream{
-		iterator: func() (int, bool) {
+func (s StringStream) Peek(f func(string)) StringStream {
+	return StringStream{
+		iterator: func() (string, bool) {
 			next, hasNext := s.iterator()
 			if hasNext {
 				f(next)
@@ -307,25 +292,25 @@ func (s IntStream) Peek(f func(int)) IntStream {
 // same type as the initial value, which can be any type.
 // If there are no elements in the strea, the result is the identity.
 // Otherwise, the result is f(f(identity, element1), element2)...
-func (s IntStream) Reduce(
+func (s StringStream) Reduce(
 	identity interface{},
-	f func(accumulator interface{}, element int) interface{},
+	f func(accumulator interface{}, element string) interface{},
 ) interface{} {
 	result := identity
 
-	s.ForEach(func(element int) {
+	s.ForEach(func(element string) {
 		result = f(result, element)
 	})
 
 	return result
 }
 
-// Skip returns a new IntStream that skips the first n elements
-func (s IntStream) Skip(n int) IntStream {
+// Skip returns a new StringStream that skips the first n elements
+func (s StringStream) Skip(n int) StringStream {
 	done := false
 
-	return IntStream{
-		iterator: func() (int, bool) {
+	return StringStream{
+		iterator: func() (string, bool) {
 			// Skip n elements only once
 			if !done {
 				for i := 1; i <= n; i++ {
@@ -343,19 +328,19 @@ func (s IntStream) Skip(n int) IntStream {
 	}
 }
 
-// Sorted returns a new IntStream with the values sorted by the provided comparator..
-func (s IntStream) Sorted() IntStream {
-	var sortedIter func() (int, bool)
+// Sorted returns a new StringStream with the values sorted by the provided comparator..
+func (s StringStream) Sorted() StringStream {
+	var sortedIter func() (string, bool)
 	done := false
 
-	return IntStream{
-		iterator: func() (int, bool) {
+	return StringStream{
+		iterator: func() (string, bool) {
 			if !done {
-				// Sort all IntStream elements
+				// Sort all StringStream elements
 				sorted := s.ToSlice()
-				sort.Ints(sorted)
+				sort.Strings(sorted)
 
-				sortedIter = (&intSliceIterator{array: sorted}).next
+				sortedIter = (&stringSliceIterator{array: sorted}).next
 				done = true
 			}
 
@@ -365,27 +350,12 @@ func (s IntStream) Sorted() IntStream {
 	}
 }
 
-// Sum returns an optional sum value
-func (s IntStream) Sum() (int, bool) {
-	var (
-		sum int
-		haveSum bool
-	)
-
-	s.ForEach(func(element int) {
-		sum += element
-		haveSum = true
-	})
-
-	return sum, haveSum
-}
-
 // ToMap returns a map of all elements by invoking the given function to a key/value pair for the map.
 // It is up to the function to generate unique keys to prevent values from being overwritten.
-func (s IntStream) ToMap(f func(int) (key interface{}, value interface{})) map[interface{}]interface{} {
+func (s StringStream) ToMap(f func(string) (key interface{}, value interface{})) map[interface{}]interface{} {
 	m := map[interface{}]interface{}{}
 
-	s.ForEach(func(element int) {
+	s.ForEach(func(element string) {
 		k, v := f(element)
 		m[k] = v
 	})
@@ -394,10 +364,10 @@ func (s IntStream) ToMap(f func(int) (key interface{}, value interface{})) map[i
 }
 
 // ToSlice returns a slice of all elements
-func (s IntStream) ToSlice() []int {
-	var array []int
+func (s StringStream) ToSlice() []string {
+	var array []string
 
-	s.ForEach(func(element int) {
+	s.ForEach(func(element string) {
 		array = append(array, element)
 	})
 

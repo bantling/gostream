@@ -4,14 +4,14 @@ import (
 	"sort"
 )
 
-// intSliceIterator is an iterator for an array
-type intSliceIterator struct {
-	array []int
+// floatSliceIterator is an iterator for an array
+type floatSliceIterator struct {
+	array []float64
 	index int
 }
 
 // next iterates the array
-func (iter *intSliceIterator) next() (int, bool) {
+func (iter *floatSliceIterator) next() (float64, bool) {
 	if iter.index < len(iter.array) {
 		next := iter.array[iter.index]
 		iter.index++
@@ -21,24 +21,24 @@ func (iter *intSliceIterator) next() (int, bool) {
 	return 0, false
 }
 
-// IntStream is the int specialization of Stream
-type IntStream struct {
-	iterator func() (int, bool)
+// FloatStream is the float64 specialization of Stream
+type FloatStream struct {
+	iterator func() (float64, bool)
 }
 
-// Construct a new IntStream of an iterator
-func NewIntStream(iter func() (int, bool)) IntStream {
-	return IntStream{iterator: iter}
+// Construct a new FloatStream of an iterator
+func NewFloatStream(iter func() (float64, bool)) FloatStream {
+	return FloatStream{iterator: iter}
 }
 
-// Construct a new IntStream of an array of values
-func NewIntStreamOf(array ...int) IntStream {
-	arrayIter := intSliceIterator{array: array}
-	return IntStream{iterator: arrayIter.next}
+// Construct a new FloatStream of an array of values
+func NewFloatStreamOf(array ...float64) FloatStream {
+	arrayIter := floatSliceIterator{array: array}
+	return FloatStream{iterator: arrayIter.next}
 }
 
 // AllMatch is true if the predicate matches all elements with short-circuit logic
-func (s IntStream) AllMatch(f func(element int) bool) bool {
+func (s FloatStream) AllMatch(f func(element float64) bool) bool {
 	allMatch := true
 
 	for next, hasNext := s.iterator(); hasNext; next, hasNext = s.iterator() {
@@ -51,7 +51,7 @@ func (s IntStream) AllMatch(f func(element int) bool) bool {
 }
 
 // AnyMatch is true if the predicate matches any element with short-circuit logic
-func (s IntStream) AnyMatch(f func(element int) bool) bool {
+func (s FloatStream) AnyMatch(f func(element float64) bool) bool {
 	anyMatch := false
 
 	for next, hasNext := s.iterator(); hasNext; next, hasNext = s.iterator() {
@@ -64,13 +64,13 @@ func (s IntStream) AnyMatch(f func(element int) bool) bool {
 }
 
 // Average returns an optional average value
-func (s IntStream) Average() (float64, bool) {
+func (s FloatStream) Average() (float64, bool) {
 	var (
-		sum int
+		sum   float64
 		count int
 	)
 
-	s.ForEach(func(element int) {
+	s.ForEach(func(element float64) {
 		sum += element
 		count++
 	})
@@ -78,13 +78,13 @@ func (s IntStream) Average() (float64, bool) {
 	return float64(sum) / float64(count), count > 0
 }
 
-// Concat concatenates two IntStreams into a new IntStream that contains all the elements
-// of this IntStream followed by all elements of the IntStream passed
-func (s IntStream) Concat(os IntStream) IntStream {
+// Concat concatenates two FloatStreams into a new FloatStream that contains all the elements
+// of this FloatStream followed by all elements of the FloatStream passed
+func (s FloatStream) Concat(os FloatStream) FloatStream {
 	firstIter := true
 
-	return IntStream{
-		iterator: func() (int, bool) {
+	return FloatStream{
+		iterator: func() (float64, bool) {
 			if firstIter {
 				if next, hasNext := s.iterator(); hasNext {
 					return next, hasNext
@@ -101,19 +101,19 @@ func (s IntStream) Concat(os IntStream) IntStream {
 }
 
 // Count returns the count of all elements
-func (s IntStream) Count() int {
+func (s FloatStream) Count() int {
 	count := 0
 
-	s.ForEach(func(int) { count++ })
+	s.ForEach(func(float64) { count++ })
 
 	return count
 }
 
 // Distinct returns the distinct elements only
-func (s IntStream) Distinct() IntStream {
-	alreadyRead := map[int]bool{}
+func (s FloatStream) Distinct() FloatStream {
+	alreadyRead := map[float64]bool{}
 
-	return s.Filter(func(element int) bool {
+	return s.Filter(func(element float64) bool {
 		if !alreadyRead[element] {
 			alreadyRead[element] = true
 			return true
@@ -124,10 +124,10 @@ func (s IntStream) Distinct() IntStream {
 }
 
 // Duplicates returns the duplicate elements only
-func (s IntStream) Duplicate() IntStream {
-	alreadyRead := map[int]bool{}
+func (s FloatStream) Duplicate() FloatStream {
+	alreadyRead := map[float64]bool{}
 
-	return s.Filter(func(element int) bool {
+	return s.Filter(func(element float64) bool {
 		if !alreadyRead[element] {
 			alreadyRead[element] = true
 			return false
@@ -137,10 +137,10 @@ func (s IntStream) Duplicate() IntStream {
 	})
 }
 
-// Filter returns a new IntStream of all elements that pass the given predicate
-func (s IntStream) Filter(f func(element int) bool) IntStream {
-	return IntStream{
-		iterator: func() (int, bool) {
+// Filter returns a new FloatStream of all elements that pass the given predicate
+func (s FloatStream) Filter(f func(element float64) bool) FloatStream {
+	return FloatStream{
+		iterator: func() (float64, bool) {
 			for next, hasNext := s.iterator(); hasNext; next, hasNext = s.iterator() {
 				if f(next) {
 					return next, true
@@ -153,12 +153,12 @@ func (s IntStream) Filter(f func(element int) bool) IntStream {
 }
 
 // First returns the optional first element
-func (s IntStream) First() (int, bool) {
+func (s FloatStream) First() (float64, bool) {
 	return s.iterator()
 }
 
-// ForEach invokes a consumer with each element of the IntStream
-func (s IntStream) ForEach(f func(element int)) {
+// ForEach invokes a consumer with each element of the FloatStream
+func (s FloatStream) ForEach(f func(element float64)) {
 	for next, hasNext := s.iterator(); hasNext; next, hasNext = s.iterator() {
 		f(next)
 	}
@@ -166,12 +166,12 @@ func (s IntStream) ForEach(f func(element int)) {
 
 // GroupBy groups elements by executing the given function on each value to get a key,
 // and appending the element to the end of a slice associated with the key in the resulting map.
-func (s IntStream) GroupBy(f func(element int) (key interface{})) map[interface{}][]int {
-	m := map[interface{}][]int{}
+func (s FloatStream) GroupBy(f func(element float64) (key interface{})) map[interface{}][]float64 {
+	m := map[interface{}][]float64{}
 
 	s.Reduce(
 		m,
-		func(accumulator interface{}, element int) interface{} {
+		func(accumulator interface{}, element float64) interface{} {
 			k := f(element)
 			m[k] = append(m[k], element)
 			return m
@@ -181,12 +181,12 @@ func (s IntStream) GroupBy(f func(element int) (key interface{})) map[interface{
 	return m
 }
 
-// Iterate returns a IntStream of an iterative calculation, f(seed), f(f(seed)), ...
-func (s IntStream) Iterate(seed int, f func(int) int) IntStream {
+// Iterate returns a FloatStream of an iterative calculation, f(seed), f(f(seed)), ...
+func (s FloatStream) Iterate(seed float64, f func(float64) float64) FloatStream {
 	acculumator := seed
 
-	return IntStream{
-		iterator: func() (int, bool) {
+	return FloatStream{
+		iterator: func() (float64, bool) {
 			acculumator = f(acculumator)
 
 			return acculumator, true
@@ -195,13 +195,13 @@ func (s IntStream) Iterate(seed int, f func(int) int) IntStream {
 }
 
 // Last returns the optional last element
-func (s IntStream) Last() (int, bool) {
+func (s FloatStream) Last() (float64, bool) {
 	var (
-		next    int
+		next    float64
 		hasNext bool
 	)
 
-	s.ForEach(func(element int) {
+	s.ForEach(func(element float64) {
 		next = element
 		hasNext = true
 	})
@@ -209,13 +209,13 @@ func (s IntStream) Last() (int, bool) {
 	return next, hasNext
 }
 
-// Limit returns a new IntStream that only iterates the first n elements, ignoring the rest
-func (s IntStream) Limit(n int) IntStream {
+// Limit returns a new FloatStream that only iterates the first n elements, ignoring the rest
+func (s FloatStream) Limit(n int) FloatStream {
 	elementsRead := 0
 	done := false
 
-	return IntStream{
-		iterator: func() (int, bool) {
+	return FloatStream{
+		iterator: func() (float64, bool) {
 			if done {
 				return 0, false
 			}
@@ -234,7 +234,7 @@ func (s IntStream) Limit(n int) IntStream {
 }
 
 // Map each element to a new element, possibly of a different type
-func (s IntStream) Map(f func(element int) interface{}) Stream {
+func (s FloatStream) Map(f func(element float64) interface{}) Stream {
 	return Stream{
 		iterator: func() (interface{}, bool) {
 			if next, hasNext := s.iterator(); hasNext {
@@ -247,10 +247,10 @@ func (s IntStream) Map(f func(element int) interface{}) Stream {
 }
 
 // Max returns an optional maximum value according to the provided comparator
-func (s IntStream) Max() (int, bool) {
+func (s FloatStream) Max() (float64, bool) {
 	max, hasMax := s.iterator()
 	if hasMax {
-		s.ForEach(func(element int) {
+		s.ForEach(func(element float64) {
 			if max < element {
 				max = element
 			}
@@ -261,10 +261,10 @@ func (s IntStream) Max() (int, bool) {
 }
 
 // Min returns an optional minimum value according to the provided comparator
-func (s IntStream) Min() (int, bool) {
+func (s FloatStream) Min() (float64, bool) {
 	min, hasMin := s.iterator()
 	if hasMin {
-		s.ForEach(func(element int) {
+		s.ForEach(func(element float64) {
 			if element < min {
 				min = element
 			}
@@ -275,7 +275,7 @@ func (s IntStream) Min() (int, bool) {
 }
 
 // NoneMatch is true if the predicate matches none of the elements with short-circuit logic
-func (s IntStream) NoneMatch(f func(element int) bool) bool {
+func (s FloatStream) NoneMatch(f func(element float64) bool) bool {
 	noneMatch := true
 
 	for next, hasNext := s.iterator(); hasNext; next, hasNext = s.iterator() {
@@ -288,9 +288,9 @@ func (s IntStream) NoneMatch(f func(element int) bool) bool {
 }
 
 // Peek calls a function to examine each value and perform an additional operation
-func (s IntStream) Peek(f func(int)) IntStream {
-	return IntStream{
-		iterator: func() (int, bool) {
+func (s FloatStream) Peek(f func(float64)) FloatStream {
+	return FloatStream{
+		iterator: func() (float64, bool) {
 			next, hasNext := s.iterator()
 			if hasNext {
 				f(next)
@@ -307,25 +307,25 @@ func (s IntStream) Peek(f func(int)) IntStream {
 // same type as the initial value, which can be any type.
 // If there are no elements in the strea, the result is the identity.
 // Otherwise, the result is f(f(identity, element1), element2)...
-func (s IntStream) Reduce(
+func (s FloatStream) Reduce(
 	identity interface{},
-	f func(accumulator interface{}, element int) interface{},
+	f func(accumulator interface{}, element float64) interface{},
 ) interface{} {
 	result := identity
 
-	s.ForEach(func(element int) {
+	s.ForEach(func(element float64) {
 		result = f(result, element)
 	})
 
 	return result
 }
 
-// Skip returns a new IntStream that skips the first n elements
-func (s IntStream) Skip(n int) IntStream {
+// Skip returns a new FloatStream that skips the first n elements
+func (s FloatStream) Skip(n int) FloatStream {
 	done := false
 
-	return IntStream{
-		iterator: func() (int, bool) {
+	return FloatStream{
+		iterator: func() (float64, bool) {
 			// Skip n elements only once
 			if !done {
 				for i := 1; i <= n; i++ {
@@ -343,19 +343,19 @@ func (s IntStream) Skip(n int) IntStream {
 	}
 }
 
-// Sorted returns a new IntStream with the values sorted by the provided comparator..
-func (s IntStream) Sorted() IntStream {
-	var sortedIter func() (int, bool)
+// Sorted returns a new FloatStream with the values sorted by the provided comparator..
+func (s FloatStream) Sorted() FloatStream {
+	var sortedIter func() (float64, bool)
 	done := false
 
-	return IntStream{
-		iterator: func() (int, bool) {
+	return FloatStream{
+		iterator: func() (float64, bool) {
 			if !done {
-				// Sort all IntStream elements
+				// Sort all FloatStream elements
 				sorted := s.ToSlice()
-				sort.Ints(sorted)
+				sort.Float64s(sorted)
 
-				sortedIter = (&intSliceIterator{array: sorted}).next
+				sortedIter = (&floatSliceIterator{array: sorted}).next
 				done = true
 			}
 
@@ -366,13 +366,13 @@ func (s IntStream) Sorted() IntStream {
 }
 
 // Sum returns an optional sum value
-func (s IntStream) Sum() (int, bool) {
+func (s FloatStream) Sum() (float64, bool) {
 	var (
-		sum int
+		sum     float64
 		haveSum bool
 	)
 
-	s.ForEach(func(element int) {
+	s.ForEach(func(element float64) {
 		sum += element
 		haveSum = true
 	})
@@ -382,10 +382,10 @@ func (s IntStream) Sum() (int, bool) {
 
 // ToMap returns a map of all elements by invoking the given function to a key/value pair for the map.
 // It is up to the function to generate unique keys to prevent values from being overwritten.
-func (s IntStream) ToMap(f func(int) (key interface{}, value interface{})) map[interface{}]interface{} {
+func (s FloatStream) ToMap(f func(float64) (key interface{}, value interface{})) map[interface{}]interface{} {
 	m := map[interface{}]interface{}{}
 
-	s.ForEach(func(element int) {
+	s.ForEach(func(element float64) {
 		k, v := f(element)
 		m[k] = v
 	})
@@ -394,10 +394,10 @@ func (s IntStream) ToMap(f func(int) (key interface{}, value interface{})) map[i
 }
 
 // ToSlice returns a slice of all elements
-func (s IntStream) ToSlice() []int {
-	var array []int
+func (s FloatStream) ToSlice() []float64 {
+	var array []float64
 
-	s.ForEach(func(element int) {
+	s.ForEach(func(element float64) {
 		array = append(array, element)
 	})
 
