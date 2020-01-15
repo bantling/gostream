@@ -350,6 +350,20 @@ func TestFloatStreamReduce(t *testing.T) {
 	assert.Equal(t, 7.0, sum)
 }
 
+func TestFloatStreamReverseSorted(t *testing.T) {
+	s := NewFloatStreamOf().ReverseSorted()
+	assert.Equal(t, []float64(nil), s.ToSlice())
+
+	s = NewFloatStreamOf(1).ReverseSorted()
+	assert.Equal(t, []float64{1}, s.ToSlice())
+
+	s = NewFloatStreamOf(1, 2).ReverseSorted()
+	assert.Equal(t, []float64{2, 1}, s.ToSlice())
+
+	s = NewFloatStreamOf(2, 3, 1).ReverseSorted()
+	assert.Equal(t, []float64{3, 2, 1}, s.ToSlice())
+}
+
 func TestFloatStreamSkip(t *testing.T) {
 	s := NewFloatStreamOf().Skip(0)
 	assert.Equal(t, []float64(nil), s.ToSlice())
@@ -368,20 +382,6 @@ func TestFloatStreamSkip(t *testing.T) {
 
 	s = NewFloatStreamOf(1, 2, 3, 4).Skip(2)
 	assert.Equal(t, []float64{3, 4}, s.ToSlice())
-}
-
-func TestFloatStreamSorted(t *testing.T) {
-	s := NewFloatStreamOf().Sorted()
-	assert.Equal(t, []float64(nil), s.ToSlice())
-
-	s = NewFloatStreamOf(1).Sorted()
-	assert.Equal(t, []float64{1}, s.ToSlice())
-
-	s = NewFloatStreamOf(2, 1).Sorted()
-	assert.Equal(t, []float64{1, 2}, s.ToSlice())
-
-	s = NewFloatStreamOf(2, 3, 1).Sorted()
-	assert.Equal(t, []float64{1, 2, 3}, s.ToSlice())
 }
 
 func TestFloatStreamSum(t *testing.T) {

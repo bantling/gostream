@@ -340,6 +340,20 @@ func TestStringStreamReduce(t *testing.T) {
 	assert.Equal(t, "1123", sum)
 }
 
+func TestStringStreamReverseSorted(t *testing.T) {
+	s := NewStringStreamOf().ReverseSorted()
+	assert.Equal(t, []string(nil), s.ToSlice())
+
+	s = NewStringStreamOf("1").ReverseSorted()
+	assert.Equal(t, []string{"1"}, s.ToSlice())
+
+	s = NewStringStreamOf("1", "2").ReverseSorted()
+	assert.Equal(t, []string{"2", "1"}, s.ToSlice())
+
+	s = NewStringStreamOf("2", "3", "1").ReverseSorted()
+	assert.Equal(t, []string{"3", "2", "1"}, s.ToSlice())
+}
+
 func TestStringStreamSkip(t *testing.T) {
 	s := NewStringStreamOf().Skip(0)
 	assert.Equal(t, []string(nil), s.ToSlice())

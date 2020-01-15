@@ -340,6 +340,23 @@ func TestStreamReduce(t *testing.T) {
 	assert.Equal(t, 7, sum)
 }
 
+func TestStreamReverseSorted(t *testing.T) {
+	fn := func(element1, element2 interface{}) bool {
+		return element1.(int) < element2.(int)
+	}
+	s := NewStreamOf().ReverseSorted(fn)
+	assert.Equal(t, []interface{}(nil), s.ToSlice())
+
+	s = NewStreamOf(1).ReverseSorted(fn)
+	assert.Equal(t, []interface{}{1}, s.ToSlice())
+
+	s = NewStreamOf(2, 1).ReverseSorted(fn)
+	assert.Equal(t, []interface{}{2, 1}, s.ToSlice())
+
+	s = NewStreamOf(2, 3, 1).ReverseSorted(fn)
+	assert.Equal(t, []interface{}{3, 2, 1}, s.ToSlice())
+}
+
 func TestStreamSkip(t *testing.T) {
 	s := NewStreamOf().Skip(0)
 	assert.Equal(t, []interface{}(nil), s.ToSlice())

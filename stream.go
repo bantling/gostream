@@ -356,6 +356,14 @@ func (s Stream) Reduce(
 	return result
 }
 
+// ReverseSorted returns a stream with elements sorted in decreasing order.
+// The provided function must compare elements in increasing order, same as for Sorted.
+func (s Stream) ReverseSorted(less func(element1, element2 interface{}) bool) Stream {
+	return s.Sorted(func(element1, element2 interface{}) bool {
+		return !less(element1, element2)
+	})
+}
+
 // Skip returns a new stream that skips the first n elements
 func (s Stream) Skip(n int) Stream {
 	done := false

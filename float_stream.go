@@ -359,6 +359,30 @@ func (s FloatStream) Reduce(
 	return result
 }
 
+// ReverseSorted returns a new FloatStream with the values sorted in decreasing order
+func (s FloatStream) ReverseSorted() FloatStream {
+	var sortedIter func() (float64, bool)
+	done := false
+
+	return FloatStream{
+		iterator: func() (float64, bool) {
+			if !done {
+				// Sort all FloatStream elements
+				sorted := s.ToSlice()
+				sort.Slice(sorted, func(i, j int) bool {
+					return sorted[i] >= sorted[j]
+				})
+
+				sortedIter = (&floatSliceIterator{array: sorted}).next
+				done = true
+			}
+
+			// Return next sorted element
+			return sortedIter()
+		},
+	}
+}
+
 // Skip returns a new FloatStream that skips the first n elements
 func (s FloatStream) Skip(n int) FloatStream {
 	done := false
@@ -382,7 +406,7 @@ func (s FloatStream) Skip(n int) FloatStream {
 	}
 }
 
-// Sorted returns a new FloatStream with the values sorted by the provided comparator..
+// Sorted returns a new FloatStream with the values sorted in increasing order
 func (s FloatStream) Sorted() FloatStream {
 	var sortedIter func() (float64, bool)
 	done := false

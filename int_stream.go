@@ -66,7 +66,7 @@ func (s IntStream) AnyMatch(f func(element int) bool) bool {
 // Average returns an optional average value
 func (s IntStream) Average() (float64, bool) {
 	var (
-		sum int
+		sum   int
 		count int
 	)
 
@@ -359,6 +359,32 @@ func (s IntStream) Reduce(
 	return result
 }
 
+// ReverseSorted returns a stream with elements sorted in decreasing order
+func (s IntStream) ReverseSorted() IntStream {
+	var sortedIter func() (int, bool)
+	done := false
+
+	return IntStream{
+		iterator: func() (int, bool) {
+			if !done {
+				// Sort all IntStream elements
+				sorted := s.ToSlice()
+
+				// If no custom comparator provided, use sort function specific to ints
+				sort.Slice(sorted, func(i, j int) bool {
+					return sorted[i] >= sorted[j]
+				})
+
+				sortedIter = (&intSliceIterator{array: sorted}).next
+				done = true
+			}
+
+			// Return next sorted element
+			return sortedIter()
+		},
+	}
+}
+
 // Skip returns a new IntStream that skips the first n elements
 func (s IntStream) Skip(n int) IntStream {
 	done := false
@@ -382,7 +408,9 @@ func (s IntStream) Skip(n int) IntStream {
 	}
 }
 
-// Sorted returns a new IntStream with the values sorted by the provided comparator..
+// Sorted returns a new IntStream with the values sorted in increasing order.
+// An optional comparator may be provided for a custom sort order.
+// Note the comparator parameters are elements, not indexes.
 func (s IntStream) Sorted() IntStream {
 	var sortedIter func() (int, bool)
 	done := false
@@ -392,6 +420,8 @@ func (s IntStream) Sorted() IntStream {
 			if !done {
 				// Sort all IntStream elements
 				sorted := s.ToSlice()
+
+				// If no custom comparator provided, use sort function specific to ints
 				sort.Ints(sorted)
 
 				sortedIter = (&intSliceIterator{array: sorted}).next
@@ -407,7 +437,7 @@ func (s IntStream) Sorted() IntStream {
 // Sum returns an optional sum value
 func (s IntStream) Sum() (int, bool) {
 	var (
-		sum int
+		sum     int
 		haveSum bool
 	)
 

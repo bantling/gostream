@@ -344,6 +344,30 @@ func (s StringStream) Reduce(
 	return result
 }
 
+// ReverseSorted returns a new StringStream with the values sorted in decreasing order
+func (s StringStream) ReverseSorted() StringStream {
+	var sortedIter func() (string, bool)
+	done := false
+
+	return StringStream{
+		iterator: func() (string, bool) {
+			if !done {
+				// Sort all StringStream elements
+				sorted := s.ToSlice()
+				sort.Slice(sorted, func(i, j int) bool {
+					return sorted[i] >= sorted[j]
+				})
+
+				sortedIter = (&stringSliceIterator{array: sorted}).next
+				done = true
+			}
+
+			// Return next sorted element
+			return sortedIter()
+		},
+	}
+}
+
 // Skip returns a new StringStream that skips the first n elements
 func (s StringStream) Skip(n int) StringStream {
 	done := false
@@ -367,7 +391,7 @@ func (s StringStream) Skip(n int) StringStream {
 	}
 }
 
-// Sorted returns a new StringStream with the values sorted by the provided comparator..
+// Sorted returns a new StringStream with the values sorted in increasing order
 func (s StringStream) Sorted() StringStream {
 	var sortedIter func() (string, bool)
 	done := false

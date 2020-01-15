@@ -350,6 +350,20 @@ func TestIntStreamReduce(t *testing.T) {
 	assert.Equal(t, 7, sum)
 }
 
+func TestIntStreamReverseSorted(t *testing.T) {
+	s := NewIntStreamOf().ReverseSorted()
+	assert.Equal(t, []int(nil), s.ToSlice())
+
+	s = NewIntStreamOf(1).ReverseSorted()
+	assert.Equal(t, []int{1}, s.ToSlice())
+
+	s = NewIntStreamOf(1, 2).ReverseSorted()
+	assert.Equal(t, []int{2, 1}, s.ToSlice())
+
+	s = NewIntStreamOf(2, 3, 1).ReverseSorted()
+	assert.Equal(t, []int{3, 2, 1}, s.ToSlice())
+}
+
 func TestIntStreamSkip(t *testing.T) {
 	s := NewIntStreamOf().Skip(0)
 	assert.Equal(t, []int(nil), s.ToSlice())
