@@ -16,7 +16,5 @@ A http://golang.org/[Go] simplistic port of Java streams, that only handles sing
 ** Duplicate is the opposite of distinct, only returns duplicate elements
 ** GroupBy takes a func that converts an element into an interface{} key and returns a map[interface{}][]<element type>. All elements that have the same key are mapped into the same slice.
 ** ToMap takes a func that converts an element into an interface{} key and an interface{} value to put into a map. If multiple elements are mapped to the same key, they overwrite the value for the key.
-* All streams have a Sorted method that returns a new sorted stream
-** Only Stream requires a comparator function that receives two elements and returns true if the first element is less than the second
-* All streams also have a ReverseSorted method
-** For Stream, use the same comparator as for Sorted (compares in increasing order)
+* All streams have Sorted and ReverseSorted methods that return a new sorted stream
+* Only Stream requires a comparator function that receives two elements and returns true if the first element is less than the second. The comparator is used for Max, Min, Sorted, and ReverseSorted
