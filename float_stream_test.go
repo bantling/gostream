@@ -1,4 +1,4 @@
-package stream
+package gostream
 
 import (
 	"strconv"
@@ -60,18 +60,20 @@ func TestFloatStreamAnyMatch(t *testing.T) {
 
 func TestFloatStreamAverage(t *testing.T) {
 	s := NewFloatStreamOf()
-	_, haveAverage := s.Average()
-	assert.False(t, haveAverage)
+	avg := s.Average()
+	assert.True(t, avg.IsEmpty())
 
 	s = NewFloatStreamOf(3, 4)
-	average, haveAverage := s.Average()
-	assert.Equal(t, 3.5, average)
-	assert.True(t, haveAverage)
+	avg = s.Average()
+	assert.Equal(t, 3.5, avg.MustGet())
+	avg = s.Average()
+	assert.True(t, avg.IsEmpty())
 
 	s = NewFloatStreamOf(1, 2, 3)
-	average, haveAverage = s.Average()
-	assert.Equal(t, 2.0, average)
-	assert.True(t, haveAverage)
+	avg = s.Average()
+	assert.Equal(t, 2.0, avg.MustGet())
+	avg = s.Average()
+	assert.True(t, avg.IsEmpty())
 }
 
 func TestFloatStreamConcat(t *testing.T) {
@@ -127,21 +129,18 @@ func TestFloatStreamFirst(t *testing.T) {
 	s := NewFloatStreamOf()
 
 	s = NewFloatStreamOf(1)
-	next, hasNext := s.First()
-	assert.Equal(t, 1.0, next)
-	assert.True(t, hasNext)
-	next, hasNext = s.First()
-	assert.False(t, hasNext)
+	first := s.First()
+	assert.Equal(t, 1.0, first.MustGet())
+	first = s.First()
+	assert.True(t, first.IsEmpty())
 
 	s = NewFloatStreamOf(1, 2)
-	next, hasNext = s.First()
-	assert.Equal(t, 1.0, next)
-	assert.True(t, hasNext)
-	next, hasNext = s.First()
-	assert.Equal(t, 2.0, next)
-	assert.True(t, hasNext)
-	next, hasNext = s.First()
-	assert.False(t, hasNext)
+	first = s.First()
+	assert.Equal(t, 1.0, first.MustGet())
+	first = s.First()
+	assert.Equal(t, 2.0, first.MustGet())
+	first = s.First()
+	assert.True(t, first.IsEmpty())
 }
 
 func TestFloatStreamForEach(t *testing.T) {
@@ -183,28 +182,30 @@ func TestFloatStreamIterate(t *testing.T) {
 		return element * 2
 	}
 	s := NewFloatStreamOf().Iterate(1, fn)
-	element, _ := s.First()
-	assert.Equal(t, 2.0, element)
-	element, _ = s.First()
-	assert.Equal(t, 4.0, element)
-	element, _ = s.First()
-	assert.Equal(t, 8.0, element)
+	next := s.First()
+	assert.Equal(t, 2.0, next.MustGet())
+	next = s.First()
+	assert.Equal(t, 4.0, next.MustGet())
+	next = s.First()
+	assert.Equal(t, 8.0, next.MustGet())
 }
 
 func TestFloatStreamLast(t *testing.T) {
 	s := NewFloatStreamOf()
-	next, hasNext := s.Last()
-	assert.False(t, hasNext)
+	last := s.Last()
+	assert.True(t, last.IsEmpty())
 
 	s = NewFloatStreamOf(1)
-	next, hasNext = s.Last()
-	assert.Equal(t, 1.0, next)
-	assert.True(t, hasNext)
+	last = s.Last()
+	assert.Equal(t, 1.0, last.MustGet())
+	last = s.Last()
+	assert.True(t, last.IsEmpty())
 
 	s = NewFloatStreamOf(1, 2)
-	next, hasNext = s.Last()
-	assert.Equal(t, 2.0, next)
-	assert.True(t, hasNext)
+	last = s.Last()
+	assert.Equal(t, 2.0, last.MustGet())
+	last = s.Last()
+	assert.True(t, last.IsEmpty())
 }
 
 func TestFloatStreamMap(t *testing.T) {
@@ -235,17 +236,17 @@ func TestFloatStreamMapToInt(t *testing.T) {
 	assert.Equal(t, []int{2, 4}, s.ToSlice())
 }
 
-func TestFloatStreamMapToObject(t *testing.T) {
+func TestFloatStreamMapTo(t *testing.T) {
 	fn := func(element float64) interface{} {
 		return strconv.FormatFloat(element*2, 'f', -1, 64)
 	}
-	s := NewFloatStreamOf().MapToObject(fn)
+	s := NewFloatStreamOf().MapTo(fn)
 	assert.Equal(t, []interface{}(nil), s.ToSlice())
 
-	s = NewFloatStreamOf(1).MapToObject(fn)
+	s = NewFloatStreamOf(1).MapTo(fn)
 	assert.Equal(t, []interface{}{"2"}, s.ToSlice())
 
-	s = NewFloatStreamOf(1, 2).MapToObject(fn)
+	s = NewFloatStreamOf(1, 2).MapTo(fn)
 	assert.Equal(t, []interface{}{"2", "4"}, s.ToSlice())
 }
 
@@ -265,44 +266,50 @@ func TestFloatStreamMapToString(t *testing.T) {
 
 func TestFloatStreamMax(t *testing.T) {
 	s := NewFloatStreamOf()
-	_, valid := s.Max()
-	assert.False(t, valid)
+	max := s.Max()
+	assert.True(t, max.IsEmpty())
 
 	s = NewFloatStreamOf(1)
-	max, valid := s.Max()
-	assert.Equal(t, 1.0, max)
-	assert.True(t, valid)
+	max = s.Max()
+	assert.Equal(t, 1.0, max.MustGet())
+	max = s.Max()
+	assert.True(t, max.IsEmpty())
 
 	s = NewFloatStreamOf(1, 2)
-	max, valid = s.Max()
-	assert.Equal(t, 2.0, max)
-	assert.True(t, valid)
+	max = s.Max()
+	assert.Equal(t, 2.0, max.MustGet())
+	max = s.Max()
+	assert.True(t, max.IsEmpty())
 
 	s = NewFloatStreamOf(1, 3, 2)
-	max, valid = s.Max()
-	assert.Equal(t, 3.0, max)
-	assert.True(t, valid)
+	max = s.Max()
+	assert.Equal(t, 3.0, max.MustGet())
+	max = s.Max()
+	assert.True(t, max.IsEmpty())
 }
 
 func TestFloatStreamMin(t *testing.T) {
 	s := NewFloatStreamOf()
-	_, valid := s.Min()
-	assert.False(t, valid)
+	min := s.Min()
+	assert.True(t, min.IsEmpty())
 
 	s = NewFloatStreamOf(1)
-	min, valid := s.Min()
-	assert.Equal(t, 1.0, min)
-	assert.True(t, valid)
+	min = s.Min()
+	assert.Equal(t, 1.0, min.MustGet())
+	min = s.Min()
+	assert.True(t, min.IsEmpty())
 
 	s = NewFloatStreamOf(1, 0)
-	min, valid = s.Min()
-	assert.Equal(t, 0.0, min)
-	assert.True(t, valid)
+	min = s.Min()
+	assert.Equal(t, 0.0, min.MustGet())
+	min = s.Min()
+	assert.True(t, min.IsEmpty())
 
 	s = NewFloatStreamOf(1, -1, 2)
-	min, valid = s.Min()
-	assert.Equal(t, -1.0, min)
-	assert.True(t, valid)
+	min = s.Min()
+	assert.Equal(t, -1.0, min.MustGet())
+	min = s.Min()
+	assert.True(t, min.IsEmpty())
 }
 
 func TestFloatStreamNoneMatch(t *testing.T) {
@@ -386,18 +393,20 @@ func TestFloatStreamSkip(t *testing.T) {
 
 func TestFloatStreamSum(t *testing.T) {
 	s := NewFloatStreamOf()
-	_, haveSum := s.Sum()
-	assert.False(t, haveSum)
+	sum := s.Sum()
+	assert.True(t, sum.IsEmpty())
 
 	s = NewFloatStreamOf(3, 4)
-	sum, haveSum := s.Sum()
-	assert.Equal(t, 7.0, sum)
-	assert.True(t, haveSum)
+	sum = s.Sum()
+	assert.Equal(t, 7.0, sum.MustGet())
+	sum = s.Sum()
+	assert.True(t, sum.IsEmpty())
 
 	s = NewFloatStreamOf(1, 2, 3)
-	sum, haveSum = s.Sum()
-	assert.Equal(t, 6.0, sum)
-	assert.True(t, haveSum)
+	sum = s.Sum()
+	assert.Equal(t, 6.0, sum.MustGet())
+	sum = s.Sum()
+	assert.True(t, sum.IsEmpty())
 }
 
 func TestFloatStreamToMap(t *testing.T) {

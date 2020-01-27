@@ -1,7 +1,9 @@
-package stream
+package gostream
 
 import (
 	"sort"
+	
+	"github.com/bantling/gooptional"
 )
 
 // stringSliceIterator is an iterator for an array
@@ -138,8 +140,14 @@ func (s StringStream) Filter(f func(element string) bool) StringStream {
 }
 
 // First returns the optional first element
-func (s StringStream) First() (string, bool) {
-	return s.iterator()
+func (s StringStream) First() gooptional.OptionalString {
+	first, hasFirst := s.iterator()
+
+	if !hasFirst {
+		return gooptional.OfString()
+	}
+
+	return gooptional.OfString(first)
 }
 
 // ForEach invokes a consumer with each element of the StringStream
@@ -180,18 +188,22 @@ func (s StringStream) Iterate(seed string, f func(string) string) StringStream {
 }
 
 // Last returns the optional last element
-func (s StringStream) Last() (string, bool) {
+func (s StringStream) Last() gooptional.OptionalString {
 	var (
-		next    string
-		hasNext bool
+		last    string
+		hasLast bool
 	)
 
 	s.ForEach(func(element string) {
-		next = element
-		hasNext = true
+		last = element
+		hasLast = true
 	})
 
-	return next, hasNext
+	if !hasLast {
+		return gooptional.OfString()
+	}
+
+	return gooptional.OfString(last)
 }
 
 // Limit returns a new StringStream that only iterates the first n elements, ignoring the rest
@@ -257,8 +269,8 @@ func (s StringStream) MapToInt(f func(element string) int) IntStream {
 	}
 }
 
-// Map each element to an object
-func (s StringStream) MapToObject(f func(element string) interface{}) Stream {
+// Map each element to another type
+func (s StringStream) MapTo(f func(element string) interface{}) Stream {
 	return Stream{
 		iterator: func() (interface{}, bool) {
 			if next, hasNext := s.iterator(); hasNext {
@@ -271,8 +283,9 @@ func (s StringStream) MapToObject(f func(element string) interface{}) Stream {
 }
 
 // Max returns an optional maximum value according to the provided comparator
-func (s StringStream) Max() (string, bool) {
+func (s StringStream) Max() gooptional.OptionalString {
 	max, hasMax := s.iterator()
+
 	if hasMax {
 		s.ForEach(func(element string) {
 			if max < element {
@@ -281,12 +294,17 @@ func (s StringStream) Max() (string, bool) {
 		})
 	}
 
-	return max, hasMax
+	if !hasMax {
+		return gooptional.OfString()
+	}
+
+	return gooptional.OfString(max)
 }
 
 // Min returns an optional minimum value according to the provided comparator
-func (s StringStream) Min() (string, bool) {
+func (s StringStream) Min() gooptional.OptionalString {
 	min, hasMin := s.iterator()
+
 	if hasMin {
 		s.ForEach(func(element string) {
 			if element < min {
@@ -295,7 +313,11 @@ func (s StringStream) Min() (string, bool) {
 		})
 	}
 
-	return min, hasMin
+	if !hasMin {
+		return gooptional.OfString()
+	}
+
+	return gooptional.OfString(min)
 }
 
 // NoneMatch is true if the predicate matches none of the elements with short-circuit logic

@@ -1,4 +1,4 @@
-package stream
+package gostream
 
 import (
 	"strconv"
@@ -109,23 +109,22 @@ func TestStreamFilter(t *testing.T) {
 
 func TestStreamFirst(t *testing.T) {
 	s := NewStreamOf()
+	first := s.First()
+	assert.True(t, first.IsEmpty())
 
 	s = NewStreamOf(1)
-	next, hasNext := s.First()
-	assert.Equal(t, 1, next)
-	assert.True(t, hasNext)
-	next, hasNext = s.First()
-	assert.False(t, hasNext)
+	first = s.First()
+	assert.Equal(t, 1, first.MustGet())
+	first = s.First()
+	assert.True(t, first.IsEmpty())
 
 	s = NewStreamOf(1, 2)
-	next, hasNext = s.First()
-	assert.Equal(t, 1, next)
-	assert.True(t, hasNext)
-	next, hasNext = s.First()
-	assert.Equal(t, 2, next)
-	assert.True(t, hasNext)
-	next, hasNext = s.First()
-	assert.False(t, hasNext)
+	first = s.First()
+	assert.Equal(t, 1, first.MustGet())
+	first = s.First()
+	assert.Equal(t, 2, first.MustGet())
+	first = s.First()
+	assert.True(t, first.IsEmpty())
 }
 
 func TestStreamForEach(t *testing.T) {
@@ -167,28 +166,30 @@ func TestStreamIterate(t *testing.T) {
 		return element.(int) * 2
 	}
 	s := NewStreamOf().Iterate(1, fn)
-	element, _ := s.First()
-	assert.Equal(t, 2, element)
-	element, _ = s.First()
-	assert.Equal(t, 4, element)
-	element, _ = s.First()
-	assert.Equal(t, 8, element)
+	first := s.First()
+	assert.Equal(t, 2, first.MustGet())
+	first = s.First()
+	assert.Equal(t, 4, first.MustGet())
+	first = s.First()
+	assert.Equal(t, 8, first.MustGet())
 }
 
 func TestStreamLast(t *testing.T) {
 	s := NewStreamOf()
-	next, hasNext := s.Last()
-	assert.False(t, hasNext)
+	last := s.Last()
+	assert.True(t, last.IsEmpty())
 
 	s = NewStreamOf(1)
-	next, hasNext = s.Last()
-	assert.Equal(t, 1, next)
-	assert.True(t, hasNext)
+	last = s.Last()
+	assert.Equal(t, 1, last.MustGet())
+	last = s.Last()
+	assert.True(t, last.IsEmpty())
 
 	s = NewStreamOf(1, 2)
-	next, hasNext = s.Last()
-	assert.Equal(t, 2, next)
-	assert.True(t, hasNext)
+	last = s.Last()
+	assert.Equal(t, 2, last.MustGet())
+	last = s.Last()
+	assert.True(t, last.IsEmpty())
 }
 
 func TestStreamMap(t *testing.T) {
@@ -252,23 +253,26 @@ func TestStreamMax(t *testing.T) {
 		return element1.(int) < element2.(int)
 	}
 	s := NewStreamOf()
-	_, valid := s.Max(fn)
-	assert.False(t, valid)
+	max := s.Max(fn)
+	assert.True(t, max.IsEmpty())
 
 	s = NewStreamOf(1)
-	max, valid := s.Max(fn)
-	assert.Equal(t, 1, max)
-	assert.True(t, valid)
+	max = s.Max(fn)
+	assert.Equal(t, 1, max.MustGet())
+	max = s.Max(fn)
+	assert.True(t, max.IsEmpty())
 
 	s = NewStreamOf(1, 2)
-	max, valid = s.Max(fn)
-	assert.Equal(t, 2, max)
-	assert.True(t, valid)
+	max = s.Max(fn)
+	assert.Equal(t, 2, max.MustGet())
+	max = s.Max(fn)
+	assert.True(t, max.IsEmpty())
 
 	s = NewStreamOf(1, 3, 2)
-	max, valid = s.Max(fn)
-	assert.Equal(t, 3, max)
-	assert.True(t, valid)
+	max = s.Max(fn)
+	assert.Equal(t, 3, max.MustGet())
+	max = s.Max(fn)
+	assert.True(t, max.IsEmpty())
 }
 
 func TestStreamMin(t *testing.T) {
@@ -276,23 +280,26 @@ func TestStreamMin(t *testing.T) {
 		return element1.(int) < element2.(int)
 	}
 	s := NewStreamOf()
-	_, valid := s.Min(fn)
-	assert.False(t, valid)
+	min := s.Min(fn)
+	assert.True(t, min.IsEmpty())
 
 	s = NewStreamOf(1)
-	min, valid := s.Min(fn)
-	assert.Equal(t, 1, min)
-	assert.True(t, valid)
+	min = s.Min(fn)
+	assert.Equal(t, 1, min.MustGet())
+	min = s.Min(fn)
+	assert.True(t, min.IsEmpty())
 
 	s = NewStreamOf(1, 0)
-	min, valid = s.Min(fn)
-	assert.Equal(t, 0, min)
-	assert.True(t, valid)
+	min = s.Min(fn)
+	assert.Equal(t, 0, min.MustGet())
+	min = s.Min(fn)
+	assert.True(t, min.IsEmpty())
 
 	s = NewStreamOf(1, -1, 2)
-	min, valid = s.Min(fn)
-	assert.Equal(t, -1, min)
-	assert.True(t, valid)
+	min = s.Min(fn)
+	assert.Equal(t, -1, min.MustGet())
+	min = s.Min(fn)
+	assert.True(t, min.IsEmpty())
 }
 
 func TestStreamNoneMatch(t *testing.T) {

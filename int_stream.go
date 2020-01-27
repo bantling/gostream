@@ -1,7 +1,9 @@
-package stream
+package gostream
 
 import (
 	"sort"
+
+	"github.com/bantling/gooptional"
 )
 
 // intSliceIterator is an iterator for an array
@@ -64,7 +66,7 @@ func (s IntStream) AnyMatch(f func(element int) bool) bool {
 }
 
 // Average returns an optional average value
-func (s IntStream) Average() (float64, bool) {
+func (s IntStream) Average() gooptional.OptionalFloat {
 	var (
 		sum   int
 		count int
@@ -75,7 +77,11 @@ func (s IntStream) Average() (float64, bool) {
 		count++
 	})
 
-	return float64(sum) / float64(count), count > 0
+	if count == 0 {
+		return gooptional.OfFloat()
+	}
+
+	return gooptional.OfFloat(float64(sum) / float64(count))
 }
 
 // Concat concatenates two IntStreams into a new IntStream that contains all the elements
@@ -153,8 +159,13 @@ func (s IntStream) Filter(f func(element int) bool) IntStream {
 }
 
 // First returns the optional first element
-func (s IntStream) First() (int, bool) {
-	return s.iterator()
+func (s IntStream) First() gooptional.OptionalInt {
+	first, hasFirst := s.iterator()
+	if !hasFirst {
+		return gooptional.OfInt()
+	}
+
+	return gooptional.OfInt(first)
 }
 
 // ForEach invokes a consumer with each element of the IntStream
@@ -195,18 +206,22 @@ func (s IntStream) Iterate(seed int, f func(int) int) IntStream {
 }
 
 // Last returns the optional last element
-func (s IntStream) Last() (int, bool) {
+func (s IntStream) Last() gooptional.OptionalInt {
 	var (
-		next    int
-		hasNext bool
+		last    int
+		hasLast bool
 	)
 
 	s.ForEach(func(element int) {
-		next = element
-		hasNext = true
+		last = element
+		hasLast = true
 	})
 
-	return next, hasNext
+	if !hasLast {
+		return gooptional.OfInt()
+	}
+
+	return gooptional.OfInt(last)
 }
 
 // Limit returns a new IntStream that only iterates the first n elements, ignoring the rest
@@ -260,7 +275,7 @@ func (s IntStream) MapToFloat(f func(element int) float64) FloatStream {
 }
 
 // Map each element to an object
-func (s IntStream) MapToObject(f func(element int) interface{}) Stream {
+func (s IntStream) MapTo(f func(element int) interface{}) Stream {
 	return Stream{
 		iterator: func() (interface{}, bool) {
 			if next, hasNext := s.iterator(); hasNext {
@@ -286,7 +301,7 @@ func (s IntStream) MapToString(f func(element int) string) StringStream {
 }
 
 // Max returns an optional maximum value according to the provided comparator
-func (s IntStream) Max() (int, bool) {
+func (s IntStream) Max() gooptional.OptionalInt {
 	max, hasMax := s.iterator()
 	if hasMax {
 		s.ForEach(func(element int) {
@@ -296,11 +311,15 @@ func (s IntStream) Max() (int, bool) {
 		})
 	}
 
-	return max, hasMax
+	if !hasMax {
+		return gooptional.OfInt()
+	}
+
+	return gooptional.OfInt(max)
 }
 
 // Min returns an optional minimum value according to the provided comparator
-func (s IntStream) Min() (int, bool) {
+func (s IntStream) Min() gooptional.OptionalInt {
 	min, hasMin := s.iterator()
 	if hasMin {
 		s.ForEach(func(element int) {
@@ -310,7 +329,11 @@ func (s IntStream) Min() (int, bool) {
 		})
 	}
 
-	return min, hasMin
+	if !hasMin {
+		return gooptional.OfInt()
+	}
+
+	return gooptional.OfInt(min)
 }
 
 // NoneMatch is true if the predicate matches none of the elements with short-circuit logic
@@ -435,18 +458,22 @@ func (s IntStream) Sorted() IntStream {
 }
 
 // Sum returns an optional sum value
-func (s IntStream) Sum() (int, bool) {
+func (s IntStream) Sum() gooptional.OptionalInt {
 	var (
 		sum     int
-		haveSum bool
+		hasSum bool
 	)
 
 	s.ForEach(func(element int) {
 		sum += element
-		haveSum = true
+		hasSum = true
 	})
 
-	return sum, haveSum
+	if !hasSum {
+		return gooptional.OfInt()
+	}
+
+	return gooptional.OfInt(sum)
 }
 
 // ToMap returns a map of all elements by invoking the given function to a key/value pair for the map.

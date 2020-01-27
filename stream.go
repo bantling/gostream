@@ -1,7 +1,9 @@
-package stream
+package gostream
 
 import (
 	"sort"
+	
+	"github.com/bantling/gooptional"
 )
 
 // sliceIterator is an iterator for an array
@@ -150,8 +152,13 @@ func (s Stream) Filter(f func(element interface{}) bool) Stream {
 }
 
 // First returns the optional first element
-func (s Stream) First() (interface{}, bool) {
-	return s.iterator()
+func (s Stream) First() gooptional.Optional {
+	first, hasFirst := s.iterator()
+	if !hasFirst {
+		return gooptional.Of()
+	}
+
+	return gooptional.Of(first)
 }
 
 // ForEach invokes a consumer with each element of the stream
@@ -192,18 +199,22 @@ func (s Stream) Iterate(seed interface{}, f func(interface{}) interface{}) Strea
 }
 
 // Last returns the optional last element
-func (s Stream) Last() (interface{}, bool) {
+func (s Stream) Last() gooptional.Optional {
 	var (
-		next    interface{}
-		hasNext bool
+		last    interface{}
+		hasLast bool
 	)
 
 	s.ForEach(func(element interface{}) {
-		next = element
-		hasNext = true
+		last = element
+		hasLast = true
 	})
 
-	return next, hasNext
+	if !hasLast {
+		return gooptional.Of()
+	}
+
+	return gooptional.Of(last)
 }
 
 // Limit returns a new stream that only iterates the first n elements, ignoring the rest
@@ -283,7 +294,7 @@ func (s Stream) MapToString(f func(element interface{}) string) StringStream {
 }
 
 // Max returns an optional maximum value according to the provided comparator
-func (s Stream) Max(less func(element1, element2 interface{}) bool) (interface{}, bool) {
+func (s Stream) Max(less func(element1, element2 interface{}) bool) gooptional.Optional {
 	max, hasMax := s.iterator()
 	if hasMax {
 		s.ForEach(func(element interface{}) {
@@ -293,11 +304,15 @@ func (s Stream) Max(less func(element1, element2 interface{}) bool) (interface{}
 		})
 	}
 
-	return max, hasMax
+	if !hasMax {
+		return gooptional.Of()
+	}
+
+	return gooptional.Of(max)
 }
 
 // Min returns an optional minimum value according to the provided comparator
-func (s Stream) Min(less func(element1, element2 interface{}) bool) (interface{}, bool) {
+func (s Stream) Min(less func(element1, element2 interface{}) bool) gooptional.Optional {
 	min, hasMin := s.iterator()
 	if hasMin {
 		s.ForEach(func(element interface{}) {
@@ -307,7 +322,11 @@ func (s Stream) Min(less func(element1, element2 interface{}) bool) (interface{}
 		})
 	}
 
-	return min, hasMin
+	if !hasMin {
+		return gooptional.Of()
+	}
+
+	return gooptional.Of(min)
 }
 
 // NoneMatch is true if the predicate matches none of the elements with short-circuit logic
