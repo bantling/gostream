@@ -2,7 +2,7 @@ package gostream
 
 import (
 	"sort"
-	
+
 	"github.com/bantling/gooptional"
 )
 
@@ -28,13 +28,13 @@ type FloatStream struct {
 	iterator func() (float64, bool)
 }
 
-// Construct a new FloatStream of an iterator
-func NewFloatStream(iter func() (float64, bool)) FloatStream {
+// FloatStreamFromIter constructs a new FloatStream of an iterator
+func FloatStreamFromIter(iter func() (float64, bool)) FloatStream {
 	return FloatStream{iterator: iter}
 }
 
-// Construct a new FloatStream of an array of values
-func NewFloatStreamOf(array ...float64) FloatStream {
+// FloatStreamOf constructs a new FloatStream from an array of values
+func FloatStreamOf(array ...float64) FloatStream {
 	arrayIter := floatSliceIterator{array: array}
 	return FloatStream{iterator: arrayIter.next}
 }
@@ -99,9 +99,8 @@ func (s FloatStream) Concat(os FloatStream) FloatStream {
 				// Switch to second iterator and return first element
 				firstIter = false
 				return os.iterator()
-			} else {
-				return os.iterator()
 			}
+			return os.iterator()
 		},
 	}
 }
@@ -129,7 +128,7 @@ func (s FloatStream) Distinct() FloatStream {
 	})
 }
 
-// Duplicates returns the duplicate elements only
+// Duplicate returns the duplicate elements only
 func (s FloatStream) Duplicate() FloatStream {
 	alreadyRead := map[float64]bool{}
 
@@ -248,7 +247,7 @@ func (s FloatStream) Limit(n int) FloatStream {
 	}
 }
 
-// Map each element to another float
+// Map maps each element to another float
 func (s FloatStream) Map(f func(element float64) float64) FloatStream {
 	return FloatStream{
 		iterator: func() (float64, bool) {
@@ -261,7 +260,7 @@ func (s FloatStream) Map(f func(element float64) float64) FloatStream {
 	}
 }
 
-// Map each element to an int
+// MapToInt maps each element to an int
 func (s FloatStream) MapToInt(f func(element float64) int) IntStream {
 	return IntStream{
 		iterator: func() (int, bool) {
@@ -274,7 +273,7 @@ func (s FloatStream) MapToInt(f func(element float64) int) IntStream {
 	}
 }
 
-// Map each element to some other type
+// MapTo maps each element to some other type
 func (s FloatStream) MapTo(f func(element float64) interface{}) Stream {
 	return Stream{
 		iterator: func() (interface{}, bool) {
@@ -287,7 +286,7 @@ func (s FloatStream) MapTo(f func(element float64) interface{}) Stream {
 	}
 }
 
-// Map each element to a string
+// MapToString maps each element to a string
 func (s FloatStream) MapToString(f func(element float64) string) StringStream {
 	return StringStream{
 		iterator: func() (string, bool) {
@@ -454,7 +453,7 @@ func (s FloatStream) Sorted() FloatStream {
 // Sum returns an optional sum value
 func (s FloatStream) Sum() gooptional.OptionalFloat {
 	var (
-		sum     float64
+		sum    float64
 		hasSum bool
 	)
 

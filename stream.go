@@ -1,21 +1,38 @@
 package gostream
 
 import (
+	"fmt"
+	"reflect"
 	"sort"
-	
+
 	"github.com/bantling/gooptional"
 )
 
-// sliceIterator is an iterator for an array
-type sliceIterator struct {
-	array []interface{}
-	index int
+// SliceIterator is an iterator for any kind of array or slice
+type SliceIterator struct {
+	array  reflect.Value
+	length int
+	index  int
 }
 
-// next iterates the array
-func (iter *sliceIterator) next() (interface{}, bool) {
-	if iter.index < len(iter.array) {
-		next := iter.array[iter.index]
+// NewSliceIterator constructs a SliceIterator from an array or slice
+// Panics if the value passed is not an array or slice
+func NewSliceIterator(arrayOrSlice interface{}) *SliceIterator {
+	val := reflect.ValueOf(arrayOrSlice)
+	switch val.Kind() {
+	case reflect.Array:
+	case reflect.Slice:
+	default:
+		panic(fmt.Errorf("SliceIteratorOf: the argument must be an array or slice"))
+	}
+
+	return &SliceIterator{array: val, length: val.Len(), index: 0}
+}
+
+// Next iterates the array or slice
+func (iter *SliceIterator) Next() (interface{}, bool) {
+	if iter.index < iter.length {
+		next := iter.array.Index(iter.index).Interface()
 		iter.index++
 		return next, true
 	}
@@ -40,15 +57,16 @@ type Stream struct {
 	iterator func() (interface{}, bool)
 }
 
-// Construct a new stream of an iterator
-func NewStream(iter func() (interface{}, bool)) Stream {
+// StreamFromIter constructs a stream from an iterator
+func StreamFromIter(iter func() (interface{}, bool)) Stream {
 	return Stream{iterator: iter}
 }
 
-// Construct a new stream of an array of values
-func NewStreamOf(array ...interface{}) Stream {
-	arrayIter := sliceIterator{array: array}
-	return Stream{iterator: arrayIter.next}
+// StreamOf constructs a stream from a vararg of values.
+// It's up to the caller to ensure the values have some common type.
+func StreamOf(array ...interface{}) Stream {
+	arrayIter := NewSliceIterator(array)
+	return Stream{iterator: arrayIter.Next}
 }
 
 // AllMatch is true if the predicate matches all elements with short-circuit logic
@@ -92,9 +110,8 @@ func (s Stream) Concat(os Stream) Stream {
 				// Switch to second iterator and return first element
 				firstIter = false
 				return os.iterator()
-			} else {
-				return os.iterator()
 			}
+			return os.iterator()
 		},
 	}
 }
@@ -122,7 +139,7 @@ func (s Stream) Distinct() Stream {
 	})
 }
 
-// Duplicates returns the duplicate elements only
+// Duplicate returns the duplicate elements only
 func (s Stream) Duplicate() Stream {
 	alreadyRead := map[interface{}]bool{}
 
@@ -241,7 +258,7 @@ func (s Stream) Limit(n int) Stream {
 	}
 }
 
-// Map each element to a new element, possibly of a different type
+// Map maps each element to a new element, possibly of a different type
 func (s Stream) Map(f func(element interface{}) interface{}) Stream {
 	return Stream{
 		iterator: func() (interface{}, bool) {
@@ -254,7 +271,7 @@ func (s Stream) Map(f func(element interface{}) interface{}) Stream {
 	}
 }
 
-// MapToInt each element to an int
+// MapToInt maps each element to an int
 func (s Stream) MapToInt(f func(element interface{}) int) IntStream {
 	return IntStream{
 		iterator: func() (int, bool) {
@@ -267,7 +284,7 @@ func (s Stream) MapToInt(f func(element interface{}) int) IntStream {
 	}
 }
 
-// MapToFloat each element to a float
+// MapToFloat maps each element to a float
 func (s Stream) MapToFloat(f func(element interface{}) float64) FloatStream {
 	return FloatStream{
 		iterator: func() (float64, bool) {
@@ -280,7 +297,7 @@ func (s Stream) MapToFloat(f func(element interface{}) float64) FloatStream {
 	}
 }
 
-// MapToInt each element to an int
+// MapToString maps each element to a string
 func (s Stream) MapToString(f func(element interface{}) string) StringStream {
 	return StringStream{
 		iterator: func() (string, bool) {
@@ -420,7 +437,7 @@ func (s Stream) Sorted(less func(element1, element2 interface{}) bool) Stream {
 					return less(sorted[i], sorted[j])
 				})
 
-				sortedIter = (&sliceIterator{array: sorted}).next
+				sortedIter = NewSliceIterator(sorted).Next
 				done = true
 			}
 
@@ -452,4 +469,16 @@ func (s Stream) ToSlice() []interface{} {
 	})
 
 	return array
+}
+
+// ToSliceOf returns a slice of all elements, where the slice type is the same as the given element.
+// EG, if a value of type int is passed, a []int is returned.
+func (s Stream) ToSliceOf(elementVal interface{}) interface{} {
+	array := reflect.MakeSlice(reflect.SliceOf(reflect.TypeOf(elementVal)), 0, 0)
+
+	s.ForEach(func(element interface{}) {
+		array = reflect.Append(array, reflect.ValueOf(element))
+	})
+
+	return array.Interface()
 }

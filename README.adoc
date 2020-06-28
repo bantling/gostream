@@ -4,17 +4,19 @@ A http://golang.org/[Go] simplistic port of Java streams, that only handles sing
 
 * Stream is for the general cases, and uses interface{} for elements
 * IntStream, FloatStream, and StringStream offer specializations for int, float64, and string
-* Iterators are just functions of no arguments that return (<element type>, bool), where the bool is true if an element was returned, and false if all there are no more elements. When the boolean is false, the value returned is not an element of the stream, it should be considered invalid.
+* Iterators are just functions of no arguments that return (<element type>, bool), where the bool is true if an element was returned, and false if there are no more elements. When the boolean is false, the value returned is not an element of the stream, it should be considered invalid.
 * Each struct has a pair of constructor functions:
-** New<struct name>(func() (<element type>, bool))
-** New<struct name>Of(...<element type>)
+** <struct name>FromIter(func() (<element type>, bool))
+** <struct name>Of(...<element type>)
 * IntStream and FloatStream have Average and Sum functions
 * Each of the four structs has MapTo methods for the other three, eg Stream has MapToFloat, MapToInt, and MapToString
 * Each stream type has all operations in a single struct
-* Instead of separate collectors each implementation has GroupBy, ToMap, and ToSlice
+* Instead of separate collectors each implementation has GroupBy, ToMap, ToSlice
+* The Stream implementation also has ToSliceOf(<value>) that returns a slice typed as []<type of value>, which will panic unless every value in the stream is the same type as the value given
 * All streams have some methods Java doesn't
 ** Duplicate is the opposite of distinct, only returns duplicate elements
 ** GroupBy takes a func that converts an element into an interface{} key and returns a map[interface{}][]<element type>. All elements that have the same key are mapped into the same slice.
 ** ToMap takes a func that converts an element into an interface{} key and an interface{} value to put into a map. If multiple elements are mapped to the same key, they overwrite the value for the key.
+** ToSlice collects all the elements into a slice   
 * All streams have Sorted and ReverseSorted methods that return a new sorted stream
-* Only Stream requires a comparator function that receives two elements and returns true if the first element is less than the second. The comparator is used for Max, Min, Sorted, and ReverseSorted
+* Only Stream requires a comparator function that receives two elements and returns true if the first element is less than the second. The comparator is used for Max, Min, Sorted, and ReverseSorted.

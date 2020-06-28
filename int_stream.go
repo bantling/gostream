@@ -28,13 +28,13 @@ type IntStream struct {
 	iterator func() (int, bool)
 }
 
-// Construct a new IntStream of an iterator
-func NewIntStream(iter func() (int, bool)) IntStream {
+// IntStreamFromIter constructs a new IntStream of an iterator
+func IntStreamFromIter(iter func() (int, bool)) IntStream {
 	return IntStream{iterator: iter}
 }
 
-// Construct a new IntStream of an array of values
-func NewIntStreamOf(array ...int) IntStream {
+// IntStreamOf constructs a new IntStream from an array of values
+func IntStreamOf(array ...int) IntStream {
 	arrayIter := intSliceIterator{array: array}
 	return IntStream{iterator: arrayIter.next}
 }
@@ -99,9 +99,8 @@ func (s IntStream) Concat(os IntStream) IntStream {
 				// Switch to second iterator and return first element
 				firstIter = false
 				return os.iterator()
-			} else {
-				return os.iterator()
 			}
+			return os.iterator()
 		},
 	}
 }
@@ -129,7 +128,7 @@ func (s IntStream) Distinct() IntStream {
 	})
 }
 
-// Duplicates returns the duplicate elements only
+// Duplicate returns the duplicate elements only
 func (s IntStream) Duplicate() IntStream {
 	alreadyRead := map[int]bool{}
 
@@ -248,7 +247,7 @@ func (s IntStream) Limit(n int) IntStream {
 	}
 }
 
-// Map each element to another element
+// Map maps each element to another element
 func (s IntStream) Map(f func(element int) int) IntStream {
 	return IntStream{
 		iterator: func() (int, bool) {
@@ -261,7 +260,7 @@ func (s IntStream) Map(f func(element int) int) IntStream {
 	}
 }
 
-// Map each element to a float
+// MapToFloat maps each element to a float
 func (s IntStream) MapToFloat(f func(element int) float64) FloatStream {
 	return FloatStream{
 		iterator: func() (float64, bool) {
@@ -274,7 +273,7 @@ func (s IntStream) MapToFloat(f func(element int) float64) FloatStream {
 	}
 }
 
-// Map each element to an object
+// MapTo maps each element to an object
 func (s IntStream) MapTo(f func(element int) interface{}) Stream {
 	return Stream{
 		iterator: func() (interface{}, bool) {
@@ -287,7 +286,7 @@ func (s IntStream) MapTo(f func(element int) interface{}) Stream {
 	}
 }
 
-// Map each element to a string
+// MapToString maps each element to a string
 func (s IntStream) MapToString(f func(element int) string) StringStream {
 	return StringStream{
 		iterator: func() (string, bool) {
@@ -460,7 +459,7 @@ func (s IntStream) Sorted() IntStream {
 // Sum returns an optional sum value
 func (s IntStream) Sum() gooptional.OptionalInt {
 	var (
-		sum     int
+		sum    int
 		hasSum bool
 	)
 
