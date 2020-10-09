@@ -1,131 +1,66 @@
 package gostream
 
 import (
-	"fmt"
 	"reflect"
 	"sort"
 
+	"github.com/bantling/goiter"
 	"github.com/bantling/gooptional"
 )
 
-// SliceIterator is an iterator for any kind of array or slice
-type SliceIterator struct {
-	array  reflect.Value
-	length int
-	index  int
-}
-
-// NewSliceIterator constructs a SliceIterator from an array or slice
-// Panics if the value passed is not an array or slice
-func NewSliceIterator(arrayOrSlice interface{}) *SliceIterator {
-	val := reflect.ValueOf(arrayOrSlice)
-	switch val.Kind() {
-	case reflect.Array:
-	case reflect.Slice:
-	default:
-		panic(fmt.Errorf("SliceIteratorOf: the argument must be an array or slice"))
-	}
-
-	return &SliceIterator{array: val, length: val.Len(), index: 0}
-}
-
-// Next iterates the array or slice
-func (iter *SliceIterator) Next() (interface{}, bool) {
-	if iter.index < iter.length {
-		next := iter.array.Index(iter.index).Interface()
-		iter.index++
-		return next, true
-	}
-
-	return nil, false
-}
-
-// Stream is the base object type for streams.
-// It is based on a simple iterator function that returns (interface{}, bool).
-// If the bool result is true, the interface{} is a valid value, and there may be more values.
-// If the bool result is false, the interface{} is not a valid value, and there are no more values.
-// An iterator can be infinite by simply never returning false.
-//
-// Some methods are chaining methods, they return a new stream
-// Some functions are terminal, they return a non-stream result
-// Some terminal functions return optional values by returning (<type>, bool),
-// the meaning of the results is the same as for an iterator.
-// Some functions accept a comparator.
-// Normally, a comparator takes two int slice indexes and returns true if the value at index1 < the value at index2.
-// For a Stream, a comparator takes two elements and returns true if element1 < element 2.
+// Stream is the base object type for streams, based on an iterator.
+// Some methods are chaining methods, they return a new stream.
+// Some functions are terminal, they return a non-stream result.
+// Some terminal functions return optional values by returning (<type>, bool), like an iterating function.
+// Some functions accept a comparator that takes two elements and returns true if element1 < element 2.
 type Stream struct {
-	iterator func() (interface{}, bool)
+	iter *goiter.Iter
 }
 
-// StreamFromIter constructs a stream from an iterator
-func StreamFromIter(iter func() (interface{}, bool)) Stream {
-	return Stream{iterator: iter}
+// ==== Constructors
+
+// Of constructs a stream of hard-coded values
+func Of(items ...interface{}) Stream {
+	return Stream{iter: goiter.Of(items...)}
 }
 
-// StreamOf constructs a stream from a vararg of values.
-// It's up to the caller to ensure the values have some common type.
-func StreamOf(array ...interface{}) Stream {
-	arrayIter := NewSliceIterator(array)
-	return Stream{iterator: arrayIter.Next}
+// OfIter constructs a stream of values returned by an existing iter
+func OfIter(iter *goiter.Iter) Stream {
+	return Stream{iter: iter}
 }
 
-// AllMatch is true if the predicate matches all elements with short-circuit logic
-func (s Stream) AllMatch(f func(element interface{}) bool) bool {
-	allMatch := true
-
-	for next, hasNext := s.iterator(); hasNext; next, hasNext = s.iterator() {
-		if allMatch = f(next); !allMatch {
-			break
-		}
-	}
-
-	return allMatch
-}
-
-// AnyMatch is true if the predicate matches any element with short-circuit logic
-func (s Stream) AnyMatch(f func(element interface{}) bool) bool {
-	anyMatch := false
-
-	for next, hasNext := s.iterator(); hasNext; next, hasNext = s.iterator() {
-		if anyMatch = f(next); anyMatch {
-			break
-		}
-	}
-
-	return anyMatch
-}
-
-// Concat concatenates two streams into a new stream that contains all the elements
-// of this stream followed by all elements of the stream passed
-func (s Stream) Concat(os Stream) Stream {
-	firstIter := true
+// Iterate returns a stream of an iterative calculation, f(seed), f(f(seed)), ...
+func Iterate(seed interface{}, f func(interface{}) interface{}) Stream {
+	acculumator := seed
 
 	return Stream{
-		iterator: func() (interface{}, bool) {
-			if firstIter {
-				if next, hasNext := s.iterator(); hasNext {
-					return next, hasNext
-				}
+		iter: goiter.NewIter(func() (interface{}, bool) {
+			acculumator = f(acculumator)
 
-				// Switch to second iterator and return first element
-				firstIter = false
-				return os.iterator()
-			}
-			return os.iterator()
-		},
+			return acculumator, true
+		}),
 	}
 }
 
-// Count returns the count of all elements
-func (s Stream) Count() int {
-	count := 0
+// ==== Other
 
-	s.ForEach(func(interface{}) { count++ })
+// First returns the optional first element
+func (s Stream) First() gooptional.Optional {
+	if s.iter.Next() {
+		return gooptional.Of(s.iter.Value())
+	}
 
-	return count
+	return gooptional.Of()
 }
 
-// Distinct returns the distinct elements only
+// Iter is the goiter.Iterable interface, returns an iterator of the elements in this stream
+func (s Stream) Iter() *goiter.Iter {
+	return s.iter
+}
+
+// ==== Transforms
+
+// Distinct returns a stream of distinct elements only
 func (s Stream) Distinct() Stream {
 	alreadyRead := map[interface{}]bool{}
 
@@ -139,7 +74,7 @@ func (s Stream) Distinct() Stream {
 	})
 }
 
-// Duplicate returns the duplicate elements only
+// Duplicate returns a stream of duplicate elements only
 func (s Stream) Duplicate() Stream {
 	alreadyRead := map[interface{}]bool{}
 
@@ -156,32 +91,254 @@ func (s Stream) Duplicate() Stream {
 // Filter returns a new stream of all elements that pass the given predicate
 func (s Stream) Filter(f func(element interface{}) bool) Stream {
 	return Stream{
-		iterator: func() (interface{}, bool) {
-			for next, hasNext := s.iterator(); hasNext; next, hasNext = s.iterator() {
+		iter: goiter.NewIter(func() (interface{}, bool) {
+			for s.iter.Next() {
+				next := s.iter.Value()
 				if f(next) {
 					return next, true
 				}
 			}
 
 			return nil, false
-		},
+		}),
 	}
 }
 
-// First returns the optional first element
-func (s Stream) First() gooptional.Optional {
-	first, hasFirst := s.iterator()
-	if !hasFirst {
+// FilterNot returns a new stream of all elements that do not pass the given predicate
+func (s Stream) FilterNot(f func(element interface{}) bool) Stream {
+	return Stream{
+		iter: goiter.NewIter(func() (interface{}, bool) {
+			for s.iter.Next() {
+				next := s.iter.Value()
+				if !f(next) {
+					return next, true
+				}
+			}
+
+			return nil, false
+		}),
+	}
+}
+
+// Limit returns a new stream that only iterates the first n elements, ignoring the rest
+func (s Stream) Limit(n uint) Stream {
+	var (
+		elementsRead uint
+		done         bool
+	)
+
+	return Stream{
+		iter: goiter.NewIter(func() (interface{}, bool) {
+			if done {
+				return nil, false
+			}
+
+			if !s.iter.Next() {
+				done = true
+				return nil, false
+			}
+
+			elementsRead++
+			done = elementsRead == n
+			return s.iter.Value(), true
+		}),
+	}
+}
+
+// Map maps each element to a new element, possibly of a different type
+func (s Stream) Map(f func(element interface{}) interface{}) Stream {
+	return Stream{
+		iter: goiter.NewIter(func() (interface{}, bool) {
+			if s.iter.Next() {
+				return f(s.iter.Value()), true
+			}
+
+			return nil, false
+		}),
+	}
+}
+
+// Peek returns a stream that calls a function that examines each value and performs an additional operation
+func (s Stream) Peek(f func(interface{})) Stream {
+	return Stream{
+		iter: goiter.NewIter(func() (interface{}, bool) {
+			if s.iter.Next() {
+				val := s.iter.Value()
+				f(val)
+				return val, true
+			}
+
+			return nil, false
+		}),
+	}
+}
+
+// Skip returns a new stream that skips the first n elements
+func (s Stream) Skip(n int) Stream {
+	var (
+		done     = false
+		haveMore = true
+	)
+
+	return Stream{
+		iter: goiter.NewIter(func() (interface{}, bool) {
+			// Skip n elements only once
+			if !done {
+				done = true
+
+				for i := 1; i <= n; i++ {
+					if !s.iter.Next() {
+						haveMore = false
+						return nil, false
+					}
+				}
+			}
+
+			if haveMore {
+				if haveMore = s.iter.Next(); haveMore {
+					// Return next element
+					return s.iter.Value(), true
+				}
+			}
+
+			return nil, false
+		}),
+	}
+}
+
+// Sorted returns a new stream with the values sorted by the provided comparator..
+func (s Stream) Sorted(less func(element1, element2 interface{}) bool) Stream {
+	var sortedIter *goiter.Iter
+	done := false
+
+	return Stream{
+		iter: goiter.NewIter(func() (interface{}, bool) {
+			if !done {
+				// Sort all stream elements
+				sorted := s.ToSlice()
+				sort.Slice(sorted, func(i, j int) bool {
+					return less(sorted[i], sorted[j])
+				})
+
+				sortedIter = goiter.OfElements(sorted)
+				done = true
+			}
+
+			// Return next sorted element
+			if sortedIter.Next() {
+				return sortedIter.Value(), true
+			}
+
+			return nil, false
+		}),
+	}
+}
+
+// ReverseSorted returns a stream with elements sorted in decreasing order.
+// The provided function must compare elements in increasing order, same as for Sorted.
+func (s Stream) ReverseSorted(less func(element1, element2 interface{}) bool) Stream {
+	return s.Sorted(func(element1, element2 interface{}) bool {
+		return !less(element1, element2)
+	})
+}
+
+// ==== Terminals
+
+// AllMatch is true if the predicate matches all elements with short-circuit logic
+func (s Stream) AllMatch(f func(element interface{}) bool) bool {
+	allMatch := true
+
+	for s.iter.Next() {
+		if allMatch = f(s.iter.Value()); !allMatch {
+			break
+		}
+	}
+
+	return allMatch
+}
+
+// AnyMatch is true if the predicate matches any element with short-circuit logic
+func (s Stream) AnyMatch(f func(element interface{}) bool) bool {
+	anyMatch := false
+
+	for s.iter.Next() {
+		if anyMatch = f(s.iter.Value()); anyMatch {
+			break
+		}
+	}
+
+	return anyMatch
+}
+
+// Average returns an optional average value.
+// The slice elements must be convertible to a float64.
+func (s Stream) Average() gooptional.Optional {
+	var (
+		sum   float64
+		count int
+	)
+
+	for s.iter.Next() {
+		sum += s.iter.FloatValue()
+		count++
+	}
+
+	if count == 0 {
 		return gooptional.Of()
 	}
 
-	return gooptional.Of(first)
+	var avg float64 = sum / float64(count)
+	return gooptional.Of(avg)
+}
+
+// Sum returns an optional sum value.
+// The slice elements must be convertible to a float64.
+func (s Stream) Sum() gooptional.Optional {
+	var (
+		sum    float64
+		hasSum bool
+	)
+
+	for s.iter.Next() {
+		sum += s.iter.FloatValue()
+		hasSum = true
+	}
+
+	if !hasSum {
+		return gooptional.Of()
+	}
+
+	return gooptional.Of(sum)
+}
+
+// NoneMatch is true if the predicate matches none of the elements with short-circuit logic
+func (s Stream) NoneMatch(f func(element interface{}) bool) bool {
+	noneMatch := true
+
+	for s.iter.Next() {
+		if noneMatch = !f(s.iter.Value()); !noneMatch {
+			break
+		}
+	}
+
+	return noneMatch
+}
+
+// Count returns the count of all elements
+func (s Stream) Count() int {
+	count := 0
+
+	for s.iter.Next() {
+		count++
+	}
+
+	return count
 }
 
 // ForEach invokes a consumer with each element of the stream
 func (s Stream) ForEach(f func(element interface{})) {
-	for next, hasNext := s.iterator(); hasNext; next, hasNext = s.iterator() {
-		f(next)
+	for s.iter.Next() {
+		f(s.iter.Value())
 	}
 }
 
@@ -202,19 +359,6 @@ func (s Stream) GroupBy(f func(element interface{}) (key interface{})) map[inter
 	return m
 }
 
-// Iterate returns a stream of an iterative calculation, f(seed), f(f(seed)), ...
-func (s Stream) Iterate(seed interface{}, f func(interface{}) interface{}) Stream {
-	acculumator := seed
-
-	return Stream{
-		iterator: func() (interface{}, bool) {
-			acculumator = f(acculumator)
-
-			return acculumator, true
-		},
-	}
-}
-
 // Last returns the optional last element
 func (s Stream) Last() gooptional.Optional {
 	var (
@@ -222,107 +366,29 @@ func (s Stream) Last() gooptional.Optional {
 		hasLast bool
 	)
 
-	s.ForEach(func(element interface{}) {
-		last = element
+	for s.iter.Next() {
+		last = s.iter.Value()
 		hasLast = true
-	})
-
-	if !hasLast {
-		return gooptional.Of()
 	}
 
-	return gooptional.Of(last)
-}
-
-// Limit returns a new stream that only iterates the first n elements, ignoring the rest
-func (s Stream) Limit(n int) Stream {
-	elementsRead := 0
-	done := false
-
-	return Stream{
-		iterator: func() (interface{}, bool) {
-			if done {
-				return nil, false
-			}
-
-			next, hasNext := s.iterator()
-			if !hasNext {
-				done = true
-				return nil, false
-			}
-
-			elementsRead++
-			done = elementsRead == n
-			return next, hasNext
-		},
+	if hasLast {
+		return gooptional.Of(last)
 	}
-}
 
-// Map maps each element to a new element, possibly of a different type
-func (s Stream) Map(f func(element interface{}) interface{}) Stream {
-	return Stream{
-		iterator: func() (interface{}, bool) {
-			if next, hasNext := s.iterator(); hasNext {
-				return f(next), true
-			}
-
-			return nil, false
-		},
-	}
-}
-
-// MapToInt maps each element to an int
-func (s Stream) MapToInt(f func(element interface{}) int) IntStream {
-	return IntStream{
-		iterator: func() (int, bool) {
-			if next, hasNext := s.iterator(); hasNext {
-				return f(next), true
-			}
-
-			return 0, false
-		},
-	}
-}
-
-// MapToFloat maps each element to a float
-func (s Stream) MapToFloat(f func(element interface{}) float64) FloatStream {
-	return FloatStream{
-		iterator: func() (float64, bool) {
-			if next, hasNext := s.iterator(); hasNext {
-				return f(next), true
-			}
-
-			return 0, false
-		},
-	}
-}
-
-// MapToString maps each element to a string
-func (s Stream) MapToString(f func(element interface{}) string) StringStream {
-	return StringStream{
-		iterator: func() (string, bool) {
-			if next, hasNext := s.iterator(); hasNext {
-				return f(next), true
-			}
-
-			return "", false
-		},
-	}
+	return gooptional.Of()
 }
 
 // Max returns an optional maximum value according to the provided comparator
 func (s Stream) Max(less func(element1, element2 interface{}) bool) gooptional.Optional {
-	max, hasMax := s.iterator()
-	if hasMax {
-		s.ForEach(func(element interface{}) {
+	var max interface{}
+	if s.iter.Next() {
+		max = s.iter.Value()
+		for s.iter.Next() {
+			element := s.iter.Value()
 			if less(max, element) {
 				max = element
 			}
-		})
-	}
-
-	if !hasMax {
-		return gooptional.Of()
+		}
 	}
 
 	return gooptional.Of(max)
@@ -330,47 +396,18 @@ func (s Stream) Max(less func(element1, element2 interface{}) bool) gooptional.O
 
 // Min returns an optional minimum value according to the provided comparator
 func (s Stream) Min(less func(element1, element2 interface{}) bool) gooptional.Optional {
-	min, hasMin := s.iterator()
-	if hasMin {
-		s.ForEach(func(element interface{}) {
+	var min interface{}
+	if s.iter.Next() {
+		min = s.iter.Value()
+		for s.iter.Next() {
+			element := s.iter.Value()
 			if less(element, min) {
 				min = element
 			}
-		})
-	}
-
-	if !hasMin {
-		return gooptional.Of()
-	}
-
-	return gooptional.Of(min)
-}
-
-// NoneMatch is true if the predicate matches none of the elements with short-circuit logic
-func (s Stream) NoneMatch(f func(element interface{}) bool) bool {
-	noneMatch := true
-
-	for next, hasNext := s.iterator(); hasNext; next, hasNext = s.iterator() {
-		if noneMatch = !f(next); !noneMatch {
-			break
 		}
 	}
 
-	return noneMatch
-}
-
-// Peek calls a function to examine each value and perform an additional operation
-func (s Stream) Peek(f func(interface{})) Stream {
-	return Stream{
-		iterator: func() (interface{}, bool) {
-			next, hasNext := s.iterator()
-			if hasNext {
-				f(next)
-			}
-
-			return next, hasNext
-		},
-	}
+	return gooptional.Of(min)
 }
 
 // Reduce uses a function to reduce the stream to a single value by iteratively executing a function
@@ -385,66 +422,11 @@ func (s Stream) Reduce(
 ) interface{} {
 	result := identity
 
-	s.ForEach(func(element interface{}) {
-		result = f(result, element)
-	})
+	for s.iter.Next() {
+		result = f(result, s.iter.Value())
+	}
 
 	return result
-}
-
-// ReverseSorted returns a stream with elements sorted in decreasing order.
-// The provided function must compare elements in increasing order, same as for Sorted.
-func (s Stream) ReverseSorted(less func(element1, element2 interface{}) bool) Stream {
-	return s.Sorted(func(element1, element2 interface{}) bool {
-		return !less(element1, element2)
-	})
-}
-
-// Skip returns a new stream that skips the first n elements
-func (s Stream) Skip(n int) Stream {
-	done := false
-
-	return Stream{
-		iterator: func() (interface{}, bool) {
-			// Skip n elements only once
-			if !done {
-				for i := 1; i <= n; i++ {
-					if _, hasNext := s.iterator(); !hasNext {
-						break
-					}
-				}
-
-				done = true
-			}
-
-			// Return next element
-			return s.iterator()
-		},
-	}
-}
-
-// Sorted returns a new stream with the values sorted by the provided comparator..
-func (s Stream) Sorted(less func(element1, element2 interface{}) bool) Stream {
-	var sortedIter func() (interface{}, bool)
-	done := false
-
-	return Stream{
-		iterator: func() (interface{}, bool) {
-			if !done {
-				// Sort all stream elements
-				sorted := s.ToSlice()
-				sort.Slice(sorted, func(i, j int) bool {
-					return less(sorted[i], sorted[j])
-				})
-
-				sortedIter = NewSliceIterator(sorted).Next
-				done = true
-			}
-
-			// Return next sorted element
-			return sortedIter()
-		},
-	}
 }
 
 // ToMap returns a map of all elements by invoking the given function to get a key/value pair for the map.
@@ -452,33 +434,33 @@ func (s Stream) Sorted(less func(element1, element2 interface{}) bool) Stream {
 func (s Stream) ToMap(f func(interface{}) (key interface{}, value interface{})) map[interface{}]interface{} {
 	m := map[interface{}]interface{}{}
 
-	s.ForEach(func(element interface{}) {
-		k, v := f(element)
+	for s.iter.Next() {
+		k, v := f(s.iter.Value())
 		m[k] = v
-	})
+	}
 
 	return m
 }
 
 // ToSlice returns a slice of all elements
 func (s Stream) ToSlice() []interface{} {
-	var array []interface{}
+	array := []interface{}{}
 
-	s.ForEach(func(element interface{}) {
-		array = append(array, element)
-	})
+	for s.iter.Next() {
+		array = append(array, s.iter.Value())
+	}
 
 	return array
 }
 
 // ToSliceOf returns a slice of all elements, where the slice type is the same as the given element.
-// EG, if a value of type int is passed, a []int is returned.
+// EG, if a value of type int is passed, an []int is returned.
 func (s Stream) ToSliceOf(elementVal interface{}) interface{} {
 	array := reflect.MakeSlice(reflect.SliceOf(reflect.TypeOf(elementVal)), 0, 0)
 
-	s.ForEach(func(element interface{}) {
-		array = reflect.Append(array, reflect.ValueOf(element))
-	})
+	for s.iter.Next() {
+		array = reflect.Append(array, reflect.ValueOf(s.iter.Value()))
+	}
 
 	return array.Interface()
 }
