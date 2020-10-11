@@ -31,6 +31,17 @@ func TestStreamIterate(t *testing.T) {
 	assert.Equal(t, 4, first.MustGet())
 	first = s.First()
 	assert.Equal(t, 8, first.MustGet())
+
+	fn2 := IterateFunc(func(element int) int {
+		return element * 2
+	})
+	s = Iterate(1, fn2)
+	first = s.First()
+	assert.Equal(t, 2, first.MustGet())
+	first = s.First()
+	assert.Equal(t, 4, first.MustGet())
+	first = s.First()
+	assert.Equal(t, 8, first.MustGet())
 }
 
 // ==== Other
@@ -98,6 +109,10 @@ func TestStreamFilter(t *testing.T) {
 
 	s = Of(1, 2, 3)
 	assert.Equal(t, []interface{}{1, 2}, s.Filter(fn).ToSlice())
+
+	fn2 := FilterFunc(func(element int) bool { return element < 3 })
+	s = Of(1, 2, 3)
+	assert.Equal(t, []int{1, 2}, s.Filter(fn2).ToSliceOf(0))
 }
 
 func TestStreamFilterNot(t *testing.T) {
@@ -126,6 +141,10 @@ func TestStreamMap(t *testing.T) {
 
 	s = Of(1, 2).Map(fn)
 	assert.Equal(t, []interface{}{"2", "4"}, s.ToSlice())
+
+	fn2 := MapFunc(func(element int) string { return strconv.Itoa(element * 2) })
+	s = Of(1, 2).Map(fn2)
+	assert.Equal(t, []string{"2", "4"}, s.ToSliceOf(""))
 }
 
 func TestStreamPeek(t *testing.T) {
@@ -143,6 +162,11 @@ func TestStreamPeek(t *testing.T) {
 	elements = nil
 	s = Of(1, 2).Peek(fn)
 	assert.Equal(t, elements, []interface{}{1, 2}, s.ToSlice())
+
+	var elements2 []int
+	fn2 := PeekFunc(func(element int) { elements2 = append(elements2, element) })
+	s = Of(1, 2).Peek(fn2)
+	assert.Equal(t, elements2, []int{1, 2}, s.ToSliceOf(0))
 }
 
 func TestStreamSkip(t *testing.T) {
@@ -180,6 +204,10 @@ func TestStreamSorted(t *testing.T) {
 
 	s = Of(2, 3, 1).Sorted(fn)
 	assert.Equal(t, []interface{}{1, 2, 3}, s.ToSlice())
+
+	fn2 := func(i, j int) bool { return i < j }
+	s = Of(2, 1).Sorted(SortFunc(fn2))
+	assert.Equal(t, []int{1, 2}, s.ToSliceOf(0))
 }
 
 func TestStreamReverseSorted(t *testing.T) {
@@ -197,6 +225,10 @@ func TestStreamReverseSorted(t *testing.T) {
 
 	s = Of(2, 3, 1).ReverseSorted(fn)
 	assert.Equal(t, []interface{}{3, 2, 1}, s.ToSlice())
+
+	fn2 := func(i, j int) bool { return i < j }
+	s = Of(1, 2).ReverseSorted(SortFunc(fn2))
+	assert.Equal(t, []int{2, 1}, s.ToSliceOf(0))
 }
 
 // ==== Terminals

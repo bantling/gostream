@@ -9,7 +9,6 @@ A http://golang.org/[Go] port of Java streams, that only handles single threaded
 ** OfIter(*goiter.Iter) constructs a Stream, from an existing Iter
 ** Stream is an Iterable, so OfIter can be passed an Iter constructed with goiter.OfIterables(Stream1, Stream2, ...), which will effectively concatenate Streams
 * Average and Sum functions require elements to be convertible to float64
-* All operations declared in Stream
 * Instead of separate collectors use GroupBy, ToMap, ToSlice, ToSliceOf
 * Stream have some methods Java doesn't
 ** Duplicate is the opposite of distinct, only returns duplicate elements
@@ -18,3 +17,19 @@ A http://golang.org/[Go] port of Java streams, that only handles single threaded
 ** ToSlice collects all the elements into a slice
 ** ToSliceOf is like ToSlice, but returns a typed slice   
 * Sorted and ReverseSorted return a new sorted stream
+* The constructors and methods that take a function argument expect functions that use type interface{}, but there are adapter functions that allow typed functions to be used instead
+** EG, the Filter method expects a func(element interface{}) bool argument, but FilterFunc takes an interface{} argument that must be a function that accepts one argument of any type that returns bool, and adapts it to a function that can be passed to the Filter method.
+
+Example code (take from unit tests):
+
+....
+// Filter using a func with type interface{}, requires type assertions
+fn := func(element interface{}) bool { return element.(int) < 3 }    
+s = Of(1, 2, 3)
+assert.Equal(t, []interface{}{1, 2}, s.Filter(fn).ToSlice())
+
+// Filter using a typed func, no type assertions
+fn2 := FilterFunc(func(element int) bool { return element < 3 })
+s = Of(1, 2, 3)
+assert.Equal(t, []int{1, 2}, s.Filter(fn2).ToSliceOf(0))
+....

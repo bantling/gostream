@@ -8,6 +8,124 @@ import (
 	"github.com/bantling/gooptional"
 )
 
+// IterateFunc adapts any func that accepts and returns the exact same type into func(interface{}) interface{} suitable for the Iterate method.
+// Panics if f is not a func that accepts and returns one type that is exactly the same.
+func IterateFunc(f interface{}) func(interface{}) interface{} {
+	var (
+		val = reflect.ValueOf(f)
+		typ = val.Type()
+	)
+
+	if typ.Kind() != reflect.Func {
+		panic("f must be a function")
+	}
+
+	if (typ.NumIn() != 1) || (typ.NumOut() != 1) {
+		panic("f must accept and return a single value of the exact same type")
+	}
+
+	argType, retType := typ.In(0), typ.Out(0)
+	if argType != retType {
+		panic("f must accept and return a single value of the exact same type")
+	}
+
+	return func(arg interface{}) interface{} {
+		return val.Call([]reflect.Value{reflect.ValueOf(arg)})[0].Interface()
+	}
+}
+
+// FilterFunc adapts any func that accepts a single arg and returns bool into a func(interface{}) bool suitable for the Filter methods.
+// Panics if f is not a func that accepts a single arg and returns bool.
+func FilterFunc(f interface{}) func(interface{}) bool {
+	var (
+		val = reflect.ValueOf(f)
+		typ = val.Type()
+	)
+
+	if typ.Kind() != reflect.Func {
+		panic("f must be a function")
+	}
+
+	if (typ.NumIn() != 1) || (typ.NumOut() != 1) {
+		panic("f must accept a single arg and return bool")
+	}
+
+	if typ.Out(0).Kind() != reflect.Bool {
+		panic("f must accept a single arg and return bool")
+	}
+
+	return func(arg interface{}) bool {
+		return val.Call([]reflect.Value{reflect.ValueOf(arg)})[0].Bool()
+	}
+}
+
+// MapFunc adapts any func that accepts a single arg and returns a single value into a func(interface{}) interface{} suitable for the Map method.
+// Panics if f is not a func that accepts a single arg and returns a single value.
+func MapFunc(f interface{}) func(interface{}) interface{} {
+	var (
+		val = reflect.ValueOf(f)
+		typ = val.Type()
+	)
+
+	if typ.Kind() != reflect.Func {
+		panic("f must be a function")
+	}
+
+	if (typ.NumIn() != 1) || (typ.NumOut() != 1) {
+		panic("f must accept a single arg and return a single value")
+	}
+
+	return func(arg interface{}) interface{} {
+		return val.Call([]reflect.Value{reflect.ValueOf(arg)})[0].Interface()
+	}
+}
+
+// PeekFunc adapts any func that accepts a single arg and returns nothing into a func(interface{}) suitable for the Peek method.
+// Panics if f is not a func that accepts a single arg and returns nothing.
+func PeekFunc(f interface{}) func(interface{}) {
+	var (
+		val = reflect.ValueOf(f)
+		typ = val.Type()
+	)
+
+	if typ.Kind() != reflect.Func {
+		panic("f must be a function")
+	}
+
+	if (typ.NumIn() != 1) || (typ.NumOut() != 0) {
+		panic("f must accept a single arg and return nothing")
+	}
+
+	return func(arg interface{}) {
+		val.Call([]reflect.Value{reflect.ValueOf(arg)})
+	}
+}
+
+// SortFunc adapts any func that accepts a pair of args of exactly the same type and returns true if first arg < second arg, suitable for the Sort method.
+// Panics if f is not a func that accepts a pair of args of exactly the same type and returns bool.
+func SortFunc(f interface{}) func(i, j interface{}) bool {
+	var (
+		val = reflect.ValueOf(f)
+		typ = val.Type()
+	)
+
+	if typ.Kind() != reflect.Func {
+		panic("f must be a function")
+	}
+
+	if (typ.NumIn() != 2) || (typ.NumOut() != 1) {
+		panic("f must accept a pair of args of exactly the same type and returns bool")
+	}
+
+	if (typ.In(0) != typ.In(1)) || (typ.Out(0).Kind() != reflect.Bool) {
+		panic("f must accept a pair of args of exactly the same type and returns bool")
+	}
+
+	return func(i, j interface{}) bool {
+		return val.Call([]reflect.Value{reflect.ValueOf(i), reflect.ValueOf(j)})[0].Bool()
+	}
+}
+
 // Stream is the base object type for streams, based on an iterator.
 // Some methods are chaining methods, they return a new stream.
 // Some functions are terminal, they return a non-stream result.
