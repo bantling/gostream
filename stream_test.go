@@ -208,6 +208,51 @@ func TestStreamSorted(t *testing.T) {
 	fn2 := func(i, j int) bool { return i < j }
 	s = Of(2, 1).Sorted(SortFunc(fn2))
 	assert.Equal(t, []int{1, 2}, s.ToSliceOf(0))
+
+	s = Of(2, 1).Sorted(IntSortFunc)
+	assert.Equal(t, []int{1, 2}, s.ToSliceOf(0))
+
+	s = Of(int8(2), int8(1)).Sorted(Int8SortFunc)
+	assert.Equal(t, []int8{1, 2}, s.ToSliceOf(int8(0)))
+
+	s = Of(int16(2), int16(1)).Sorted(Int16SortFunc)
+	assert.Equal(t, []int16{1, 2}, s.ToSliceOf(int16(0)))
+
+	s = Of(int32(2), int32(1)).Sorted(Int32SortFunc)
+	assert.Equal(t, []int32{1, 2}, s.ToSliceOf(int32(0)))
+
+	s = Of(int64(2), int64(1)).Sorted(Int64SortFunc)
+	assert.Equal(t, []int64{1, 2}, s.ToSliceOf(int64(0)))
+
+	s = Of(uint(2), uint(1)).Sorted(UintSortFunc)
+	assert.Equal(t, []uint{1, 2}, s.ToSliceOf(uint(0)))
+
+	s = Of(uint8(2), uint8(1)).Sorted(Uint8SortFunc)
+	assert.Equal(t, []uint8{1, 2}, s.ToSliceOf(uint8(0)))
+
+	s = Of(uint16(2), uint16(1)).Sorted(Uint16SortFunc)
+	assert.Equal(t, []uint16{1, 2}, s.ToSliceOf(uint16(0)))
+
+	s = Of(uint32(2), uint32(1)).Sorted(Uint32SortFunc)
+	assert.Equal(t, []uint32{1, 2}, s.ToSliceOf(uint32(0)))
+
+	s = Of(uint64(2), uint64(1)).Sorted(Uint64SortFunc)
+	assert.Equal(t, []uint64{1, 2}, s.ToSliceOf(uint64(0)))
+
+	s = Of(float32(2), float32(1)).Sorted(Float32SortFunc)
+	assert.Equal(t, []float32{1, 2}, s.ToSliceOf(float32(0)))
+
+	s = Of(float64(2), float64(1)).Sorted(Float64SortFunc)
+	assert.Equal(t, []float64{1, 2}, s.ToSliceOf(float64(0)))
+
+	s = Of(complex64((2 + 3i)), complex64((1 + 2i))).Sorted(Complex64SortFunc)
+	assert.Equal(t, []complex64{(1 + 2i), (2 + 3i)}, s.ToSliceOf(complex64(0)))
+
+	s = Of(complex128((2 + 3i)), complex128((1 + 2i))).Sorted(Complex128SortFunc)
+	assert.Equal(t, []complex128{(1 + 2i), (2 + 3i)}, s.ToSliceOf(complex128(0)))
+
+	s = Of("b", "a").Sorted(StringSortFunc)
+	assert.Equal(t, []string{"a", "b"}, s.ToSliceOf(""))
 }
 
 func TestStreamReverseSorted(t *testing.T) {

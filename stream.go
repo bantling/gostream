@@ -1,6 +1,7 @@
 package gostream
 
 import (
+	"math/cmplx"
 	"reflect"
 	"sort"
 
@@ -124,6 +125,81 @@ func SortFunc(f interface{}) func(i, j interface{}) bool {
 	return func(i, j interface{}) bool {
 		return val.Call([]reflect.Value{reflect.ValueOf(i), reflect.ValueOf(j)})[0].Bool()
 	}
+}
+
+// IntSortFunc sorts int values
+func IntSortFunc(i, j interface{}) bool {
+	return i.(int) < j.(int)
+}
+
+// Int8SortFunc sorts int8 values
+func Int8SortFunc(i, j interface{}) bool {
+	return i.(int8) < j.(int8)
+}
+
+// Int16SortFunc sorts int16 values
+func Int16SortFunc(i, j interface{}) bool {
+	return i.(int16) < j.(int16)
+}
+
+// Int32SortFunc sorts int32 values
+func Int32SortFunc(i, j interface{}) bool {
+	return i.(int32) < j.(int32)
+}
+
+// Int64SortFunc sorts int64 values
+func Int64SortFunc(i, j interface{}) bool {
+	return i.(int64) < j.(int64)
+}
+
+// UintSortFunc sorts uint values
+func UintSortFunc(i, j interface{}) bool {
+	return i.(uint) < j.(uint)
+}
+
+// Uint8SortFunc sorts uint8 values
+func Uint8SortFunc(i, j interface{}) bool {
+	return i.(uint8) < j.(uint8)
+}
+
+// Uint16SortFunc sorts uint16 values
+func Uint16SortFunc(i, j interface{}) bool {
+	return i.(uint16) < j.(uint16)
+}
+
+// Uint32SortFunc sorts uint32 values
+func Uint32SortFunc(i, j interface{}) bool {
+	return i.(uint32) < j.(uint32)
+}
+
+// Uint64SortFunc sorts uint64 values
+func Uint64SortFunc(i, j interface{}) bool {
+	return i.(uint64) < j.(uint64)
+}
+
+// Float32SortFunc sorts float32 values
+func Float32SortFunc(i, j interface{}) bool {
+	return i.(float32) < j.(float32)
+}
+
+// Float64SortFunc sorts float64 values
+func Float64SortFunc(i, j interface{}) bool {
+	return i.(float64) < j.(float64)
+}
+
+// Complex64SortFunc sorts complex64 values
+func Complex64SortFunc(i, j interface{}) bool {
+	return cmplx.Abs(complex128(i.(complex64))) < cmplx.Abs(complex128(j.(complex64)))
+}
+
+// Complex128SortFunc sorts complex128 values
+func Complex128SortFunc(i, j interface{}) bool {
+	return cmplx.Abs(i.(complex128)) < cmplx.Abs(j.(complex128))
+}
+
+// StringSortFunc sorts string values
+func StringSortFunc(i, j interface{}) bool {
+	return i.(string) < j.(string)
 }
 
 // Stream is the base object type for streams, based on an iterator.
@@ -405,7 +481,7 @@ func (s Stream) Average() gooptional.Optional {
 		return gooptional.Of()
 	}
 
-	var avg float64 = sum / float64(count)
+	avg := sum / float64(count)
 	return gooptional.Of(avg)
 }
 
