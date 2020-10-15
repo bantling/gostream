@@ -37,70 +37,15 @@ func IterateFunc(f interface{}) func(interface{}) interface{} {
 
 // FilterFunc adapts any func that accepts a single arg and returns bool into a func(interface{}) bool suitable for the Filter methods.
 // Panics if f is not a func that accepts a single arg and returns bool.
-func FilterFunc(f interface{}) func(interface{}) bool {
-	var (
-		val = reflect.ValueOf(f)
-		typ = val.Type()
-	)
-
-	if typ.Kind() != reflect.Func {
-		panic("f must be a function")
-	}
-
-	if (typ.NumIn() != 1) || (typ.NumOut() != 1) {
-		panic("f must accept a single arg and return bool")
-	}
-
-	if typ.Out(0).Kind() != reflect.Bool {
-		panic("f must accept a single arg and return bool")
-	}
-
-	return func(arg interface{}) bool {
-		return val.Call([]reflect.Value{reflect.ValueOf(arg)})[0].Bool()
-	}
-}
+var FilterFunc = gooptional.FilterFunc
 
 // MapFunc adapts any func that accepts a single arg and returns a single value into a func(interface{}) interface{} suitable for the Map method.
 // Panics if f is not a func that accepts a single arg and returns a single value.
-func MapFunc(f interface{}) func(interface{}) interface{} {
-	var (
-		val = reflect.ValueOf(f)
-		typ = val.Type()
-	)
-
-	if typ.Kind() != reflect.Func {
-		panic("f must be a function")
-	}
-
-	if (typ.NumIn() != 1) || (typ.NumOut() != 1) {
-		panic("f must accept a single arg and return a single value")
-	}
-
-	return func(arg interface{}) interface{} {
-		return val.Call([]reflect.Value{reflect.ValueOf(arg)})[0].Interface()
-	}
-}
+var MapFunc = gooptional.MapFunc
 
 // PeekFunc adapts any func that accepts a single arg and returns nothing into a func(interface{}) suitable for the Peek method.
 // Panics if f is not a func that accepts a single arg and returns nothing.
-func PeekFunc(f interface{}) func(interface{}) {
-	var (
-		val = reflect.ValueOf(f)
-		typ = val.Type()
-	)
-
-	if typ.Kind() != reflect.Func {
-		panic("f must be a function")
-	}
-
-	if (typ.NumIn() != 1) || (typ.NumOut() != 0) {
-		panic("f must accept a single arg and return nothing")
-	}
-
-	return func(arg interface{}) {
-		val.Call([]reflect.Value{reflect.ValueOf(arg)})
-	}
-}
+var PeekFunc = gooptional.ConsumerFunc
 
 // SortFunc adapts any func that accepts a pair of args of exactly the same type and returns true if first arg < second arg, suitable for the Sort method.
 // Panics if f is not a func that accepts a pair of args of exactly the same type and returns bool.
@@ -473,7 +418,7 @@ func (s Stream) Average() gooptional.Optional {
 	)
 
 	for s.iter.Next() {
-		sum += s.iter.FloatValue()
+		sum += s.iter.Float64Value()
 		count++
 	}
 
@@ -494,7 +439,7 @@ func (s Stream) Sum() gooptional.Optional {
 	)
 
 	for s.iter.Next() {
-		sum += s.iter.FloatValue()
+		sum += s.iter.Float64Value()
 		hasSum = true
 	}
 

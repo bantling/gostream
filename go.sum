@@ -10,6 +10,8 @@ github.com/bantling/goiter v1.6.0 h1:0hjrrcDCma1+ss125fqL/hHdnmbkTobKaWF4W0ecRfw
 github.com/bantling/goiter v1.6.0/go.mod h1:203QUeLltnZEnvGD5gCOE8ac3zOcNfKw807PL01JEts=
 github.com/bantling/goiter v1.8.0 h1:JSR+nPj/Qxl9y9k/CTwMLya9WUNzcDhxwlR48+E3kAU=
 github.com/bantling/goiter v1.8.0/go.mod h1:203QUeLltnZEnvGD5gCOE8ac3zOcNfKw807PL01JEts=
+github.com/bantling/goiter v1.9.0 h1:1Ks+Q6THaernCAqbNChlHCqTo4qUJadq1pb4WztuolY=
+github.com/bantling/goiter v1.9.0/go.mod h1:POJFHw0tUGDWsROcbtcqRdYpq6RSEAL9rxa7Q94Xj+U=
 github.com/bantling/gooptional v1.2.0 h1:Z2NBn1x4nAOAfYfTwHDde0nNbcD3xupXjvv84sSgcOM=
 github.com/bantling/gooptional v1.2.0/go.mod h1:/9AHerQy3RL+CyO0P+ubDsY2uTMBOd+cQjD0bGkf5bE=
 github.com/bantling/gooptional v1.4.1 h1:5fUvJ3MohFkIcdb9mzQgRUzY5+Gz7RVj0Q280qec6vY=

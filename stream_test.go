@@ -308,13 +308,13 @@ func TestStreamAnyMatch(t *testing.T) {
 func TestStreamAverage(t *testing.T) {
 	s := Of(1, 2.25)
 	avg := (1 + 2.25) / 2
-	assert.Equal(t, avg, s.Average().Iter().NextFloatValue())
+	assert.Equal(t, avg, s.Average().Iter().NextFloat64Value())
 }
 
 func TestStreamSum(t *testing.T) {
 	s := Of(1, 2.25)
 	sum := 1 + 2.25
-	assert.Equal(t, sum, s.Sum().Iter().NextFloatValue())
+	assert.Equal(t, sum, s.Sum().Iter().NextFloat64Value())
 }
 
 func TestStreamNoneMatch(t *testing.T) {
