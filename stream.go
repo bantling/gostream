@@ -170,7 +170,7 @@ func StringSortFunc(i, j interface{}) bool {
 // The ParallelAsStream method that returns a new Stream is also a non-terminal operation because further method chaining can continue to queue up further operations on the results of the paralell processing.
 type Stream struct {
 	source *goiter.Iter
-	queue  []func(*goiter.Iter) *goiter.Iter
+	queue  func(*goiter.Iter) *goiter.Iter
 }
 
 // ==== Helpers
@@ -179,15 +179,22 @@ type Stream struct {
 func construct(source *goiter.Iter) Stream {
 	return Stream{
 		source: source,
-		queue:  []func(*goiter.Iter) *goiter.Iter{},
+		queue:  nil,
 	}
 }
 
 // addQueue handles the details of adding another function to the queue for this stream
 func (s Stream) addQueue(f func(*goiter.Iter) *goiter.Iter) Stream {
+	nq := f
+	if s.queue != nil {
+		nq = func(it *goiter.Iter) *goiter.Iter {
+			return f(s.queue(it))
+		}
+	}
+
 	return Stream{
 		source: s.source,
-		queue:  append(s.queue, f),
+		queue:  nq,
 	}
 }
 
@@ -250,21 +257,11 @@ func Iterate(seed interface{}, f func(interface{}) interface{}) Stream {
 
 // Iter is the goiter.Iterable interface, returns an iterator of the results of this stream
 func (s Stream) Iter() *goiter.Iter {
-	return goiter.NewIter(
-		func() (interface{}, bool) {
-			it := s.source
+	if s.queue == nil {
+		return s.source
+	}
 
-			for _, f := range s.queue {
-				it = f(it)
-			}
-
-			if it.Next() {
-				return it.Value(), true
-			}
-
-			return nil, false
-		},
-	)
+	return s.queue(s.source)
 }
 
 // First returns the optional first element

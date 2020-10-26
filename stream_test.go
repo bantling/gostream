@@ -8,35 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// ==== Iter
-
-func TestIter(t *testing.T) {
-	str := Stream{
-		source: goiter.Of(),
-		queue: []func(*goiter.Iter) *goiter.Iter{
-			func(it *goiter.Iter) *goiter.Iter {
-				return goiter.NewIter(
-					func() (interface{}, bool) {
-						if it.Next() {
-							return it.Value(), true
-						}
-
-						return nil, false
-					},
-				)
-			},
-		},
-	}
-	it := str.Iter()
-	assert.False(t, it.Next())
-
-	str.source = goiter.Of(1)
-	it = str.Iter()
-	assert.True(t, it.Next())
-	assert.Equal(t, 1, it.Value())
-	assert.False(t, it.Next())
-}
-
 // ==== Constructors
 
 func TestOf(t *testing.T) {
