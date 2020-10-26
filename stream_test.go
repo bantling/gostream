@@ -505,6 +505,15 @@ func TestStreamToSliceOf(t *testing.T) {
 	assert.Equal(t, []int{1, 2}, s.ToSliceOf(0))
 }
 
+// ==== Sequence
+
+func TestSequence(t *testing.T) {
+	s := Of(1, 2).
+		Map(MapFunc(func(i int) int { return i * 2 })).
+		Map(MapFunc(func(i int) int { return i - 3 }))
+	assert.Equal(t, []int{-1, 1}, s.ToSliceOf(0))
+}
+
 func TestIt(t *testing.T) {
 	s := Of(1, 2).Map(MapFunc(func(i int) int { return i * 2 }))
 	assert.Equal(t, 1, s.source.NextValue())
