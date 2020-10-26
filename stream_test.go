@@ -8,6 +8,35 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// ==== Iter
+
+func TestIter(t *testing.T) {
+	str := Stream{
+		source: goiter.Of(),
+		queue: []func(*goiter.Iter) *goiter.Iter{
+			func(it *goiter.Iter) *goiter.Iter {
+				return goiter.NewIter(
+					func() (interface{}, bool) {
+						if it.Next() {
+							return it.Value(), true
+						}
+
+						return nil, false
+					},
+				)
+			},
+		},
+	}
+	it := str.Iter()
+	assert.False(t, it.Next())
+
+	str.source = goiter.Of(1)
+	it = str.Iter()
+	assert.True(t, it.Next())
+	assert.Equal(t, 1, it.Value())
+	assert.False(t, it.Next())
+}
+
 // ==== Constructors
 
 func TestOf(t *testing.T) {
@@ -15,8 +44,8 @@ func TestOf(t *testing.T) {
 	assert.Equal(t, []interface{}{3, 2, 1}, s.ToSlice())
 }
 
-func TestOfIter(t *testing.T) {
-	s := OfIter(goiter.OfElements([]int{6, 5, 4}))
+func TestOfIterables(t *testing.T) {
+	s := OfIterables(goiter.OfElements([]int{6, 5, 4}))
 	assert.Equal(t, []interface{}{6, 5, 4}, s.ToSlice())
 }
 
@@ -474,4 +503,18 @@ func TestStreamToSliceOf(t *testing.T) {
 
 	s = Of(1, 2)
 	assert.Equal(t, []int{1, 2}, s.ToSliceOf(0))
+}
+
+func TestIt(t *testing.T) {
+	s := Of(1, 2).Map(MapFunc(func(i int) int { return i * 2 }))
+	assert.Equal(t, 1, s.source.NextValue())
+	assert.Equal(t, 2, s.source.NextValue())
+
+	//	s = Of(1, 2).Map(MapFunc(func(i int) int { return i * 2 }))
+	//	src1 := goiter.Of(s.source.NextValue())
+	//	s1 := Stream{
+	//		source: src1,
+	//		target: src1,
+	//		queue: s.queue,
+	//	}
 }
