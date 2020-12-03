@@ -1,10 +1,9 @@
 package gostream
 
 import (
-	"math/cmplx"
 	"reflect"
 	"sort"
-	//	"sync"
+	"sync"
 
 	"github.com/bantling/goiter"
 	"github.com/bantling/gooptional"
@@ -18,6 +17,11 @@ const (
 	NumberOfGoroutines ParallelFlags = iota
 	// NumberOfItemsPerGoroutine indicates the number of items each goroutine processes
 	NumberOfItemsPerGoroutine
+)
+
+const (
+	// DefaultNumberOfParallelItems is the default number of items when executing transforms in parallel
+	DefaultNumberOfParallelItems uint = 50
 )
 
 // IterateFunc adapts any func that accepts and returns the exact same type into func(interface{}) interface{} suitable for the Iterate method.
@@ -46,201 +50,141 @@ func IterateFunc(f interface{}) func(interface{}) interface{} {
 	}
 }
 
-// FilterFunc adapts any func that accepts a single arg and returns bool into a func(interface{}) bool suitable for the Filter methods.
-// Panics if f is not a func that accepts a single arg and returns bool.
-var FilterFunc = gooptional.FilterFunc
-
-// MapFunc adapts any func that accepts a single arg and returns a single value into a func(interface{}) interface{} suitable for the Map method.
-// Panics if f is not a func that accepts a single arg and returns a single value.
-var MapFunc = gooptional.MapFunc
-
-// PeekFunc adapts any func that accepts a single arg and returns nothing into a func(interface{}) suitable for the Peek method.
-// Panics if f is not a func that accepts a single arg and returns nothing.
-var PeekFunc = gooptional.ConsumerFunc
-
-// SortFunc adapts any func that accepts a pair of args of exactly the same type and returns true if first arg < second arg, suitable for the Sort method.
-// Panics if f is not a func that accepts a pair of args of exactly the same type and returns bool.
-func SortFunc(f interface{}) func(i, j interface{}) bool {
-	var (
-		val = reflect.ValueOf(f)
-		typ = val.Type()
-	)
-
-	if typ.Kind() != reflect.Func {
-		panic("f must be a function")
+// compose two func(Iter) Iter f1, f2 and returns a composition func(x Iter) Iter of f2(f1(x))
+// If f1 is nil, the composition degenerates to f2(x)
+// Panics if f2 is nil
+func compose(f1, f2 func(*goiter.Iter) *goiter.Iter) func(*goiter.Iter) *goiter.Iter {
+	if f2 == nil {
+		panic("compose: f2 cannot be nil")
 	}
 
-	if (typ.NumIn() != 2) || (typ.NumOut() != 1) {
-		panic("f must accept a pair of args of exactly the same type and returns bool")
-	}
-
-	if (typ.In(0) != typ.In(1)) || (typ.Out(0).Kind() != reflect.Bool) {
-		panic("f must accept a pair of args of exactly the same type and returns bool")
-	}
-
-	return func(i, j interface{}) bool {
-		return val.Call([]reflect.Value{reflect.ValueOf(i), reflect.ValueOf(j)})[0].Bool()
-	}
-}
-
-// IntSortFunc sorts int values
-func IntSortFunc(i, j interface{}) bool {
-	return i.(int) < j.(int)
-}
-
-// Int8SortFunc sorts int8 values
-func Int8SortFunc(i, j interface{}) bool {
-	return i.(int8) < j.(int8)
-}
-
-// Int16SortFunc sorts int16 values
-func Int16SortFunc(i, j interface{}) bool {
-	return i.(int16) < j.(int16)
-}
-
-// Int32SortFunc sorts int32 values
-func Int32SortFunc(i, j interface{}) bool {
-	return i.(int32) < j.(int32)
-}
-
-// Int64SortFunc sorts int64 values
-func Int64SortFunc(i, j interface{}) bool {
-	return i.(int64) < j.(int64)
-}
-
-// UintSortFunc sorts uint values
-func UintSortFunc(i, j interface{}) bool {
-	return i.(uint) < j.(uint)
-}
-
-// Uint8SortFunc sorts uint8 values
-func Uint8SortFunc(i, j interface{}) bool {
-	return i.(uint8) < j.(uint8)
-}
-
-// Uint16SortFunc sorts uint16 values
-func Uint16SortFunc(i, j interface{}) bool {
-	return i.(uint16) < j.(uint16)
-}
-
-// Uint32SortFunc sorts uint32 values
-func Uint32SortFunc(i, j interface{}) bool {
-	return i.(uint32) < j.(uint32)
-}
-
-// Uint64SortFunc sorts uint64 values
-func Uint64SortFunc(i, j interface{}) bool {
-	return i.(uint64) < j.(uint64)
-}
-
-// Float32SortFunc sorts float32 values
-func Float32SortFunc(i, j interface{}) bool {
-	return i.(float32) < j.(float32)
-}
-
-// Float64SortFunc sorts float64 values
-func Float64SortFunc(i, j interface{}) bool {
-	return i.(float64) < j.(float64)
-}
-
-// Complex64SortFunc sorts complex64 values
-func Complex64SortFunc(i, j interface{}) bool {
-	return cmplx.Abs(complex128(i.(complex64))) < cmplx.Abs(complex128(j.(complex64)))
-}
-
-// Complex128SortFunc sorts complex128 values
-func Complex128SortFunc(i, j interface{}) bool {
-	return cmplx.Abs(i.(complex128)) < cmplx.Abs(j.(complex128))
-}
-
-// StringSortFunc sorts string values
-func StringSortFunc(i, j interface{}) bool {
-	return i.(string) < j.(string)
-}
-
-// Stream is based on an iterator, and provides a streaming facility where items can be filtered and transformed as they are iterated.
-// The idea is to call some non-terminal methods to queue up a set of operations, then call a terminal method that will invoke the queued up operations and produce a new result.
-// All non-terminal methods return a new Stream.
-// Terminal methods either return a value or invoke a function for every element.
-// There are also parallel processing methods, which do the following:
-// 1. Split up the original set of items provided when the Stream was constructed into rows of sub slices.
-// 2. Use a separate go routine for each row to process the queued up operations on each element, producing a new row.
-// 3. Return the new rows as is, as a single row, or as a new Stream.
-// The paralell processing methods are all terminal, as they all iterate all the items provided when the Stream was constructed.
-// The ParallelAsStream method that returns a new Stream is also a non-terminal operation because further method chaining can continue to queue up further operations on the results of the paralell processing.
-type Stream struct {
-	source *goiter.Iter
-	queue  func(*goiter.Iter) *goiter.Iter
-}
-
-// ==== Helpers
-
-// construct handles the details common to all constructor functions
-func construct(source *goiter.Iter) Stream {
-	return Stream{
-		source: source,
-		queue:  nil,
-	}
-}
-
-// addQueue handles the details of adding another function to the queue for this stream
-func (s Stream) addQueue(f func(*goiter.Iter) *goiter.Iter) Stream {
-	nq := f
-	if s.queue != nil {
-		nq = func(it *goiter.Iter) *goiter.Iter {
-			return f(s.queue(it))
+	composition := f2
+	if f1 != nil {
+		composition = func(it *goiter.Iter) *goiter.Iter {
+			return f2(f1(it))
 		}
 	}
 
-	return Stream{
-		source: s.source,
-		queue:  nq,
-	}
+	return composition
 }
 
-// doParallel does the grunt work of parallel processing, returning a slice of results
-//func (s *Stream) doParallel(numItems uint, f ParallelFlags) []interface{} {
-//	var splitData [][]interface{}
-//	if f == NumberOfGoroutines {
-//		// numItems = desired number of rows, number of colums to be determined
-//		splitData = s.queue.Iter().SplitIntoColumns(numItems)
-//	} else {
-//		// numItems = desired number of columns. number of rows to be determined
-//		splitData = s.queue.Iter().SplitIntoRows(numItems)
-//	}
+// doParallel does the grunt work of parallel processing, returning a slice of results.
+// If numItems is 0, the default value is DefaultNumberOfParallelItems.
+func doParallel(
+	source *goiter.Iter,
+	transform func(*goiter.Iter) *goiter.Iter,
+	finisher func(*goiter.Iter) *goiter.Iter,
+	numItems uint,
+	flag ParallelFlags,
+) []interface{} {
+	n := DefaultNumberOfParallelItems
+	if numItems > 0 {
+		n = numItems
+	}
+
+	var flatData []interface{}
+	if transform == nil {
+		// If the transform is nil, there is no transform, just use source vales as is
+		flatData = source.ToSlice()
+	} else {
+		var splitData [][]interface{}
+		if flag == NumberOfGoroutines {
+			// numItems = desired number of rows; number of colums to be determined
+			splitData = source.SplitIntoColumns(n)
+		} else {
+			// numItems = desired number of columns; number of rows to be determined
+			splitData = source.SplitIntoRows(n)
+		}
+
+		// Execute goroutines, one per row of splitData.
+		// Each goroutine applies the queued operations to each item in its row.
+		wg := &sync.WaitGroup{}
+
+		for i, row := range splitData {
+			wg.Add(1)
+
+			go func(i int, row []interface{}) {
+				defer wg.Done()
+
+				splitData[i] = transform(goiter.OfElements(row)).ToSlice()
+			}(i, row)
+		}
+
+		// Wait for all goroutines to complete
+		wg.Wait()
+
+		// Combine rows into a single flat slice
+		flatData = goiter.FlattenArraySlice(splitData)
+	}
+
+	// If the finisher is non-nil, apply it afterwards - it cannot be done in parallel
+	if finisher != nil {
+		flatData = finisher(goiter.Of(flatData...)).ToSlice()
+	}
+
+	// Return transformed rows
+	return flatData
+}
+
+// Stream is based on a source iterator, and provides a streaming facility where items can be transformed one by one as they are iterated into a new set, and possibly apply further transforms on the new set.
+// A Stream is effectively a kind of builder pattern, building up a set of transforms from an input data set to an output data set.
 //
-//	// Execute goroutines, one per row of splitData.
-//	// Each goroutines applies the queued operations for each item in its row.
-//	wg := &sync.WaitGroup{}
-//	for i, row := range splitData {
-//		wg.Add(1)
+// The idea is to compose a set of transforms, then call a terminal method that will invoke the composed transforms and produce a new result.
+// All single element transforms are handled by Stream.
+// All multi element transforms are handled by Finisher.
 //
-//		go func(wg *sync.WaitGroup, row []interface{}, splitData [][]interface{}, i int) {
-//			defer wg.Done()
+// The Transform method allow for arbitrary transforms, for cases where the transforms provided are not sufficient.
+// When calling the transform methods, the transforms are composed using function composition so that there is only one transform function in the Stream.
+// Each transform is a function that acceps an Iter and returns a new Iter.
 //
-//			s := construct(goiter.OfElements(row))
-//			splitData[i] = s.ToSlice()
-//		}(wg, row, splitData, i)
-//	}
-//	wg.Wait()
+// For example, suppose the following sequence is executed:
 //
-//	// After all goroutines have completed, combine results into a single slice
-//	return goiter.FlattenArraySlice(splitData)
-//}
+// Stream.
+//   Given(1,3,1,2,9,7,2,4,7,5,8,6,8).
+//   Filter(FilterFunc(func(i int) bool { return i < 5 })).
+//   Map(MapFunc(func(i int) int { return i * 2 })).
+//   AndThen().
+//   Distinct().
+//   Sort(IntSortFunc).
+//   ToSliceOf(0)
+//
+// The order of operations is exactly as indicated - filter then map each element one by one into a new set, finally remove duplicates from then sort the set.
+// The result will be []int{2,4,6,8}.
+type Stream struct {
+	source    *goiter.Iter
+	transform func(*goiter.Iter) *goiter.Iter
+	finite    bool
+}
+
+// construct handles the details common to all constructor functions
+func construct(source *goiter.Iter, finite bool) Stream {
+	return Stream{
+		source:    source,
+		transform: nil,
+		finite:    finite,
+	}
+}
 
 // ==== Constructors
 
 // Of constructs a stream of hard-coded values
 func Of(items ...interface{}) Stream {
-	return construct(goiter.Of(items...))
+	return construct(
+		goiter.Of(items...),
+		true,
+	)
 }
 
 // OfIterables constructs a stream of values returned by any number of iterables
 func OfIterables(iterables ...goiter.Iterable) Stream {
-	return construct(goiter.OfIterables(iterables...))
+	return construct(
+		goiter.OfIterables(iterables...),
+		true,
+	)
 }
 
-// Iterate returns a stream of an iterative calculation, f(seed), f(f(seed)), ...
+// Iterate returns a stream of an infinite iterative calculation, f(seed), f(f(seed)), ...
+// Since the series is infinite, some combination of Stream.First() and/or Finisher.Limit() will be required to terminate the series.
 func Iterate(seed interface{}, f func(interface{}) interface{}) Stream {
 	acculumator := seed
 
@@ -250,36 +194,24 @@ func Iterate(seed interface{}, f func(interface{}) interface{}) Stream {
 
 			return acculumator, true
 		}),
+		false,
 	)
 }
 
-// ==== Other
+// === Transforms
 
-// Iter is the goiter.Iterable interface, returns an iterator of the results of this stream
-func (s Stream) Iter() *goiter.Iter {
-	if s.queue == nil {
-		return s.source
+// Transform composes the current transform with a new one
+func (s Stream) Transform(t func(*goiter.Iter) *goiter.Iter) Stream {
+	return Stream{
+		source:    s.source,
+		transform: compose(s.transform, t),
+		finite:    s.finite,
 	}
-
-	return s.queue(s.source)
 }
-
-// First returns the optional first element
-func (s Stream) First() gooptional.Optional {
-	var val interface{}
-
-	if it := s.Iter(); it.Next() {
-		val = it.Value()
-	}
-
-	return gooptional.Of(val)
-}
-
-// ==== Filters
 
 // Filter returns a new stream of all elements that pass the given predicate
 func (s Stream) Filter(f func(element interface{}) bool) Stream {
-	return s.addQueue(
+	return s.Transform(
 		func(it *goiter.Iter) *goiter.Iter {
 			return goiter.NewIter(
 				func() (interface{}, bool) {
@@ -305,63 +237,9 @@ func (s Stream) FilterNot(f func(element interface{}) bool) Stream {
 	)
 }
 
-// Distinct returns a stream of distinct elements only
-func (s Stream) Distinct() Stream {
-	alreadyRead := map[interface{}]bool{}
-
-	return s.Filter(
-		func(element interface{}) bool {
-			if !alreadyRead[element] {
-				alreadyRead[element] = true
-				return true
-			}
-
-			return false
-		},
-	)
-}
-
-// Duplicate returns a stream of duplicate elements only
-func (s Stream) Duplicate() Stream {
-	alreadyRead := map[interface{}]bool{}
-
-	return s.Filter(
-		func(element interface{}) bool {
-			if !alreadyRead[element] {
-				alreadyRead[element] = true
-				return false
-			}
-
-			return true
-		},
-	)
-}
-
-// Limit returns a new stream that only iterates the first n elements, ignoring the rest
-func (s Stream) Limit(n uint) Stream {
-	var (
-		elementsRead uint
-	)
-
-	return s.addQueue(
-		func(it *goiter.Iter) *goiter.Iter {
-			return goiter.NewIter(
-				func() (interface{}, bool) {
-					if (elementsRead == n) || (!it.Next()) {
-						return nil, false
-					}
-
-					elementsRead++
-					return it.Value(), true
-				},
-			)
-		},
-	)
-}
-
 // Map maps each element to a new element, possibly of a different type
 func (s Stream) Map(f func(element interface{}) interface{}) Stream {
-	return s.addQueue(
+	return s.Transform(
 		func(it *goiter.Iter) *goiter.Iter {
 			return goiter.NewIter(
 				func() (interface{}, bool) {
@@ -378,7 +256,7 @@ func (s Stream) Map(f func(element interface{}) interface{}) Stream {
 
 // Peek returns a stream that calls a function that examines each value and performs an additional operation
 func (s Stream) Peek(f func(interface{})) Stream {
-	return s.addQueue(
+	return s.Transform(
 		func(it *goiter.Iter) *goiter.Iter {
 			return goiter.NewIter(
 				func() (interface{}, bool) {
@@ -395,11 +273,173 @@ func (s Stream) Peek(f func(interface{})) Stream {
 	)
 }
 
+// Iter returns an iterator of the elements in this Stream.
+// Note that a stream can only be iterated once by a single *goiter.Iter instance.
+func (s Stream) Iter() *goiter.Iter {
+	it := s.source
+	if s.transform != nil {
+		it = s.transform(it)
+	}
+
+	return goiter.NewIter(
+		func() (interface{}, bool) {
+			if it.Next() {
+				return it.Value(), true
+			}
+
+			return nil, false
+		},
+	)
+}
+
+// AndThen returns a Finisher, which performs additional post processing on the results of the transforms in this Stream.
+func (s Stream) AndThen() Finisher {
+	return Finisher{
+		source:    s,
+		transform: nil,
+	}
+}
+
+// FindFirst returns the optional first element of applying any tranforms to the Stream.
+// See Finisher.FindFirst().
+func (s Stream) FindFirst() gooptional.Optional {
+	return s.AndThen().FindFirst()
+}
+
+// ToSlice returns a slice of the transformed elements.
+// See Finisher.ToSlice().
+func (s Stream) ToSlice() []interface{} {
+	return s.AndThen().ToSlice()
+}
+
+// ToSliceOf returns a slice of the transformed elements.
+// See Finisher.ToSliceOf().
+func (s Stream) ToSliceOf(val interface{}) interface{} {
+	return s.AndThen().ToSliceOf(val)
+}
+
+// ==== Finisher
+
+// Finisher does two things:
+// 1. Apply zero or more transforms that operate across multiple elements after any Stream transforms have been applied to each individual element of the Stream source
+// 2. Provide terminal methods that return the final result of applying the Stream and Finisher trasforms to the Stream source
+//
+// The purpose of separating Finisher from Stream is twofold:
+// 1. Make the chaining method calls accurately represent that all multi-element transforms are applied after all single element tranforms.
+// 2. Simplify paralell execution of transforms by breaking it into two phases:
+//    a. Execute single element transforms on the Stream source in parallel
+//    b. Execute multi element transforms on the result of the parallel execution
+//
+// Guaranteeing the mutli element transforms occur after parallel execution of single element transforms greatly simplifies the parallel algorithm:
+// - Only one parallel algorithm is needed
+// - No need for multiple passes or buffering
+//
+// If the Stream was constructed using the Iterate constructor function, then all terminal Finisher methods will panic unless the Limit(int) method is called first.
+// This guarantees no infinite loop will occur in the terminal methods.
+type Finisher struct {
+	source    Stream
+	transform func(*goiter.Iter) *goiter.Iter
+}
+
+// FindFirst returns the optional first element of applying any tranforms to the stream source.
+// May be called any number of times at any time.
+// Exhausts one or more items of the source until an item that satisfies the current transforms is found, if any.
+// If no such item is found, an empty Optional is returned, else an Optional of the transformed item is returned.
+//
+// Note that it is possible for the transforms to transform an item into a nil value, resulting in an empty Optional.
+// A such, an empty result does not necessarily indicate there are no more results in the Stream.
+// However, Stream is based on goiter.Iter, which panics if Next() is called again after a previous Next() call returned false.
+// Taken together, the FindFirst() result cannot distinguish between a nil element and the end of the stream.
+func (fin Finisher) FindFirst() gooptional.Optional {
+	var val interface{}
+
+	it := fin.source.Iter()
+	if fin.transform != nil {
+		it = fin.transform(it)
+	}
+
+	if it.Next() {
+		val = it.Value()
+	}
+
+	return gooptional.Of(val)
+}
+
+// ==== Transforms
+
+// Transform composes the current transform with a new one
+func (fin Finisher) Transform(f func(*goiter.Iter) *goiter.Iter) Finisher {
+	return Finisher{
+		source:    fin.source,
+		transform: compose(fin.transform, f),
+	}
+}
+
+// Filter returns a new Finisher of all elements that pass the given predicate
+func (fin Finisher) Filter(f func(element interface{}) bool) Finisher {
+	return fin.Transform(
+		func(it *goiter.Iter) *goiter.Iter {
+			return goiter.NewIter(
+				func() (interface{}, bool) {
+					for it.Next() {
+						if val := it.Value(); f(val) {
+							return val, true
+						}
+					}
+
+					return nil, false
+				},
+			)
+		},
+	)
+}
+
+// FilterNot returns a new stream of all elements that do not pass the given predicate
+func (fin Finisher) FilterNot(f func(element interface{}) bool) Finisher {
+	return fin.Filter(
+		func(element interface{}) bool {
+			return !f(element)
+		},
+	)
+}
+
+// Distinct returns a Finisher of distinct elements only
+func (fin Finisher) Distinct() Finisher {
+	alreadyRead := map[interface{}]bool{}
+
+	return fin.Filter(
+		func(element interface{}) bool {
+			if !alreadyRead[element] {
+				alreadyRead[element] = true
+				return true
+			}
+
+			return false
+		},
+	)
+}
+
+// Duplicates returns a stream of duplicate elements only
+func (fin Finisher) Duplicates() Finisher {
+	alreadyRead := map[interface{}]bool{}
+
+	return fin.Filter(
+		func(element interface{}) bool {
+			if !alreadyRead[element] {
+				alreadyRead[element] = true
+				return false
+			}
+
+			return true
+		},
+	)
+}
+
 // Skip returns a new stream that skips the first n elements
-func (s Stream) Skip(n int) Stream {
+func (fin Finisher) Skip(n int) Finisher {
 	skipped := false
 
-	return s.addQueue(
+	return fin.Transform(
 		func(it *goiter.Iter) *goiter.Iter {
 			return goiter.NewIter(
 				func() (interface{}, bool) {
@@ -427,12 +467,34 @@ func (s Stream) Skip(n int) Stream {
 	)
 }
 
-// Sorted returns a new stream with the values sorted by the provided comparator..
-func (s Stream) Sorted(less func(element1, element2 interface{}) bool) Stream {
+// Limit returns a new stream that only iterates the first n elements, ignoring the rest
+func (fin Finisher) Limit(n uint) Finisher {
+	var (
+		elementsRead uint
+	)
+
+	return fin.Transform(
+		func(it *goiter.Iter) *goiter.Iter {
+			return goiter.NewIter(
+				func() (interface{}, bool) {
+					if (elementsRead == n) || (!it.Next()) {
+						return nil, false
+					}
+
+					elementsRead++
+					return it.Value(), true
+				},
+			)
+		},
+	)
+}
+
+// Sorted returns a new stream with the values sorted by the provided comparator.
+func (fin Finisher) Sorted(less func(element1, element2 interface{}) bool) Finisher {
 	var sortedIter *goiter.Iter
 	done := false
 
-	return s.addQueue(
+	return fin.Transform(
 		func(it *goiter.Iter) *goiter.Iter {
 			return goiter.NewIter(
 				func() (interface{}, bool) {
@@ -461,19 +523,38 @@ func (s Stream) Sorted(less func(element1, element2 interface{}) bool) Stream {
 
 // ReverseSorted returns a stream with elements sorted in decreasing order.
 // The provided function must compare elements in increasing order, same as for Sorted.
-func (s Stream) ReverseSorted(less func(element1, element2 interface{}) bool) Stream {
-	return s.Sorted(func(element1, element2 interface{}) bool {
+func (fin Finisher) ReverseSorted(less func(element1, element2 interface{}) bool) Finisher {
+	return fin.Sorted(func(element1, element2 interface{}) bool {
 		return !less(element1, element2)
 	})
 }
 
 // ==== Terminals
 
+// Iter returns an iterator of the elements in this Finisher.
+// Note that a Finisher can only be iterated once by a single *goiter.Iter instance.
+func (fin Finisher) Iter() *goiter.Iter {
+	it := fin.source.Iter()
+	if fin.transform != nil {
+		it = fin.transform(it)
+	}
+
+	return goiter.NewIter(
+		func() (interface{}, bool) {
+			if it.Next() {
+				return it.Value(), true
+			}
+
+			return nil, false
+		},
+	)
+}
+
 // AllMatch is true if the predicate matches all elements with short-circuit logic
-func (s Stream) AllMatch(f func(element interface{}) bool) bool {
+func (fin Finisher) AllMatch(f func(element interface{}) bool) bool {
 	allMatch := true
 
-	for it := s.Iter(); it.Next(); {
+	for it := fin.Iter(); it.Next(); {
 		if allMatch = f(it.Value()); !allMatch {
 			break
 		}
@@ -483,10 +564,10 @@ func (s Stream) AllMatch(f func(element interface{}) bool) bool {
 }
 
 // AnyMatch is true if the predicate matches any element with short-circuit logic
-func (s Stream) AnyMatch(f func(element interface{}) bool) bool {
+func (fin Finisher) AnyMatch(f func(element interface{}) bool) bool {
 	anyMatch := false
 
-	for it := s.Iter(); it.Next(); {
+	for it := fin.Iter(); it.Next(); {
 		if anyMatch = f(it.Value()); anyMatch {
 			break
 		}
@@ -495,15 +576,28 @@ func (s Stream) AnyMatch(f func(element interface{}) bool) bool {
 	return anyMatch
 }
 
+// NoneMatch is true if the predicate matches none of the elements with short-circuit logic
+func (fin Finisher) NoneMatch(f func(element interface{}) bool) bool {
+	noneMatch := true
+
+	for it := fin.Iter(); it.Next(); {
+		if noneMatch = !f(it.Value()); !noneMatch {
+			break
+		}
+	}
+
+	return noneMatch
+}
+
 // Average returns an optional average value.
 // The slice elements must be convertible to a float64.
-func (s Stream) Average() gooptional.Optional {
+func (fin Finisher) Average() gooptional.Optional {
 	var (
 		sum   float64
 		count int
 	)
 
-	for it := s.Iter(); it.Next(); {
+	for it := fin.Iter(); it.Next(); {
 		sum += it.Float64Value()
 		count++
 	}
@@ -518,13 +612,13 @@ func (s Stream) Average() gooptional.Optional {
 
 // Sum returns an optional sum value.
 // The slice elements must be convertible to a float64.
-func (s Stream) Sum() gooptional.Optional {
+func (fin Finisher) Sum() gooptional.Optional {
 	var (
 		sum    float64
 		hasSum bool
 	)
 
-	for it := s.Iter(); it.Next(); {
+	for it := fin.Iter(); it.Next(); {
 		sum += it.Float64Value()
 		hasSum = true
 	}
@@ -536,59 +630,22 @@ func (s Stream) Sum() gooptional.Optional {
 	return gooptional.Of(sum)
 }
 
-// NoneMatch is true if the predicate matches none of the elements with short-circuit logic
-func (s Stream) NoneMatch(f func(element interface{}) bool) bool {
-	noneMatch := true
-
-	for it := s.Iter(); it.Next(); {
-		if noneMatch = !f(it.Value()); !noneMatch {
-			break
-		}
-	}
-
-	return noneMatch
-}
-
 // Count returns the count of all elements
-func (s Stream) Count() int {
+func (fin Finisher) Count() int {
 	count := 0
 
-	for it := s.Iter(); it.Next(); {
+	for it := fin.Iter(); it.Next(); {
 		count++
 	}
 
 	return count
 }
 
-// ForEach invokes a consumer with each element of the stream
-func (s Stream) ForEach(f func(element interface{})) {
-	for it := s.Iter(); it.Next(); {
-		f(it.Value())
-	}
-}
-
-// GroupBy groups elements by executing the given function on each value to get a key,
-// and appending the element to the end of a slice associated with the key in the resulting map.
-func (s Stream) GroupBy(f func(element interface{}) (key interface{})) map[interface{}][]interface{} {
-	m := map[interface{}][]interface{}{}
-
-	s.Reduce(
-		m,
-		func(accumulator interface{}, element interface{}) interface{} {
-			k := f(element)
-			m[k] = append(m[k], element)
-			return m
-		},
-	)
-
-	return m
-}
-
 // Last returns the optional last element
-func (s Stream) Last() gooptional.Optional {
+func (fin Finisher) Last() gooptional.Optional {
 	var last interface{}
 
-	for it := s.Iter(); it.Next(); {
+	for it := fin.Iter(); it.Next(); {
 		last = it.Value()
 	}
 
@@ -596,10 +653,10 @@ func (s Stream) Last() gooptional.Optional {
 }
 
 // Max returns an optional maximum value according to the provided comparator
-func (s Stream) Max(less func(element1, element2 interface{}) bool) gooptional.Optional {
+func (fin Finisher) Max(less func(element1, element2 interface{}) bool) gooptional.Optional {
 	var max interface{}
 
-	if it := s.Iter(); it.Next() {
+	if it := fin.Iter(); it.Next() {
 		max = it.Value()
 
 		for it.Next() {
@@ -615,13 +672,10 @@ func (s Stream) Max(less func(element1, element2 interface{}) bool) gooptional.O
 }
 
 // Min returns an optional minimum value according to the provided comparator
-func (s Stream) Min(less func(element1, element2 interface{}) bool) gooptional.Optional {
-	var (
-		min interface{}
-		it  = s.Iter()
-	)
+func (fin Finisher) Min(less func(element1, element2 interface{}) bool) gooptional.Optional {
+	var min interface{}
 
-	if it.Next() {
+	if it := fin.Iter(); it.Next() {
 		min = it.Value()
 
 		for it.Next() {
@@ -636,31 +690,55 @@ func (s Stream) Min(less func(element1, element2 interface{}) bool) gooptional.O
 	return gooptional.Of(min)
 }
 
+// ForEach invokes a consumer with each element of the stream
+func (fin Finisher) ForEach(f func(element interface{})) {
+	for it := fin.Iter(); it.Next(); {
+		f(it.Value())
+	}
+}
+
 // Reduce uses a function to reduce the stream to a single value by iteratively executing a function
 // with the current accumulated value and the next stream element.
 // The identity provided is the initial accumulated value, which means the result type is the
 // same type as the initial value, which can be any type.
 // If there are no elements in the strea, the result is the identity.
 // Otherwise, the result is f(f(identity, element1), element2)...
-func (s Stream) Reduce(
+func (fin Finisher) Reduce(
 	identity interface{},
 	f func(accumulator interface{}, element2 interface{}) interface{},
 ) interface{} {
 	result := identity
 
-	for it := s.Iter(); it.Next(); {
+	for it := fin.Iter(); it.Next(); {
 		result = f(result, it.Value())
 	}
 
 	return result
 }
 
+// GroupBy groups elements by executing the given function on each value to get a key,
+// and appending the element to the end of a slice associated with the key in the resulting map.
+func (fin Finisher) GroupBy(f func(element interface{}) (key interface{})) map[interface{}][]interface{} {
+	m := map[interface{}][]interface{}{}
+
+	fin.Reduce(
+		m,
+		func(accumulator interface{}, element interface{}) interface{} {
+			k := f(element)
+			m[k] = append(m[k], element)
+			return m
+		},
+	)
+
+	return m
+}
+
 // ToMap returns a map of all elements by invoking the given function to get a key/value pair for the map.
 // It is up to the function to generate unique keys to prevent values from being overwritten.
-func (s Stream) ToMap(f func(interface{}) (key interface{}, value interface{})) map[interface{}]interface{} {
+func (fin Finisher) ToMap(f func(interface{}) (key interface{}, value interface{})) map[interface{}]interface{} {
 	m := map[interface{}]interface{}{}
 
-	for it := s.Iter(); it.Next(); {
+	for it := fin.Iter(); it.Next(); {
 		k, v := f(it.Value())
 		m[k] = v
 	}
@@ -668,27 +746,119 @@ func (s Stream) ToMap(f func(interface{}) (key interface{}, value interface{})) 
 	return m
 }
 
+// ToMapOf returns a map of all elements, where the map key and value types are the same as the types of aKey and aValue.
+// EG, if aKey is an int and aVaue is a string, then a map[int]string is returned.
+// Panics if keys are not convertible to the key type or values are not convertible to the value type.
+func (fin Finisher) ToMapOf(
+	f func(interface{}) (key interface{}, value interface{}),
+	aKey, aValue interface{},
+) interface{} {
+	var (
+		ktyp = reflect.TypeOf(aKey)
+		vtyp = reflect.TypeOf(aValue)
+		m    = reflect.MakeMap(reflect.MapOf(ktyp, vtyp))
+	)
+
+	for it := fin.Iter(); it.Next(); {
+		k, v := f(it.Value())
+		m.SetMapIndex(
+			reflect.ValueOf(k).Convert(ktyp),
+			reflect.ValueOf(v).Convert(vtyp),
+		)
+	}
+
+	return m.Interface()
+}
+
 // ToSlice returns a slice of all elements
-func (s Stream) ToSlice() []interface{} {
+func (fin Finisher) ToSlice() []interface{} {
 	array := []interface{}{}
 
-	for it := s.Iter(); it.Next(); {
+	for it := fin.Iter(); it.Next(); {
 		array = append(array, it.Value())
 	}
 
 	return array
 }
 
-// ToSliceOf returns a slice of all elements, where the slice type is the same as the given element.
-// EG, if a value of type int is passed, an []int is returned.
-func (s Stream) ToSliceOf(elementVal interface{}) interface{} {
-	array := reflect.MakeSlice(reflect.SliceOf(reflect.TypeOf(elementVal)), 0, 0)
+// ToSliceOf returns a slice of all elements, where the slice elements are the same type as the type of elementVal.
+// EG, if elementVal is an int, an []int is returned.
+// Panics if elements are not convertible to the type of elementVal.
+func (fin Finisher) ToSliceOf(elementVal interface{}) interface{} {
+	var (
+		elementTyp = reflect.TypeOf(elementVal)
+		array      = reflect.MakeSlice(reflect.SliceOf(elementTyp), 0, 0)
+	)
 
-	for it := s.Iter(); it.Next(); {
-		array = reflect.Append(array, reflect.ValueOf(it.Value()))
+	for it := fin.Iter(); it.Next(); {
+		array = reflect.Append(array, reflect.ValueOf(it.Value()).Convert(elementTyp))
 	}
 
 	return array.Interface()
 }
 
-// ==== Paralell processing
+// ToStream returns a stream of all elements
+func (fin Finisher) ToStream() Stream {
+	return Of(fin.ToSlice()...)
+}
+
+// ==== Parallel processing
+
+// ParallelToStream processes the result of the current Finisher in parallel using a number of goroutines.
+// The number of items provided is interpreted according to the optional ParallelFlags value:
+// 1. NumberOfGoroutines - numItems indicates the number of go routines (default)
+// 2. NumberOfItemsPerGoroutine - numItems indicates the number of items each go routine processes
+// Either way, the results are ordered, and a new Stream is returned that iterates them.
+// If numItems is 0, it defaults to DefaultNumberOfParallelItems.
+func (fin Finisher) ParallelToStream(numItems uint, flag ...ParallelFlags) Stream {
+	theFlag := NumberOfGoroutines
+	if len(flag) > 0 {
+		theFlag = flag[0]
+	}
+
+	data := doParallel(
+		fin.source.source,
+		fin.source.transform,
+		fin.transform,
+		numItems,
+		theFlag,
+	)
+
+	return Of(data...)
+}
+
+// ParallelToSlice is the same as Parallel, except that it returns the data as a slice
+func (fin Finisher) ParallelToSlice(numItems uint, flag ...ParallelFlags) []interface{} {
+	theFlag := NumberOfGoroutines
+	if len(flag) > 0 {
+		theFlag = flag[0]
+	}
+
+	data := doParallel(
+		fin.source.Iter(),
+		fin.transform,
+		fin.transform,
+		numItems,
+		theFlag,
+	)
+
+	return data
+}
+
+// ParallelToSliceOf is the same as ParallelSlice, except that it returns the data as a slice whose type matches the element value given.
+func (fin Finisher) ParallelToSliceOf(elementValue interface{}, numItems uint, flag ...ParallelFlags) interface{} {
+	theFlag := NumberOfGoroutines
+	if len(flag) > 0 {
+		theFlag = flag[0]
+	}
+
+	data := doParallel(
+		fin.source.source,
+		fin.source.transform,
+		fin.transform,
+		numItems,
+		theFlag,
+	)
+
+	return goiter.FlattenArraySliceAsType(data, elementValue)
+}

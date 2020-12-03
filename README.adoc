@@ -1,6 +1,6 @@
 = Streams
 
-A http://golang.org/[Go] port of Java streams, that only handles single threaded sequential data
+A http://golang.org/[Go] port of Java streams, with a single implementation and a simplified method of parallel processing
 
 * Stream uses interface{} for elements
 * Stream is based on goiter.Iter to iterate the elements that are the source of the stream
@@ -17,9 +17,6 @@ A http://golang.org/[Go] port of Java streams, that only handles single threaded
 ** ToSlice collects all the elements into a slice
 ** ToSliceOf is like ToSlice, but returns a typed slice   
 * Sorted and ReverseSorted return a new sorted stream
-* The constructors and methods that take a function argument expect functions that use type interface{}, but there are adapter functions that allow typed functions to be used instead
-** EG, the Filter method expects a func(element interface{}) bool argument, but FilterFunc takes an interface{} argument that must be a function that accepts one argument of any type that returns bool, and adapts it to a function that can be passed to the Filter method.
-** There are provided sorting funcs for all builtin numeric types and strings
 
 Example code (take from unit tests):
 
