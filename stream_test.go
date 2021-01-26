@@ -16,59 +16,52 @@ import (
 
 func TestOf(t *testing.T) {
 	s := Of(3, 2, 1)
-	assert.Equal(t, []interface{}{3, 2, 1}, s.ToSlice())
+	assert.Equal(t, []interface{}{3, 2, 1}, s.AndThen().ToSlice())
 }
 
 func TestOfIterables(t *testing.T) {
 	s := OfIterables(goiter.OfElements([]int{6, 5, 4}))
-	assert.Equal(t, []interface{}{6, 5, 4}, s.ToSlice())
+	assert.Equal(t, []interface{}{6, 5, 4}, s.AndThen().ToSlice())
 }
 
 func TestStreamIterate(t *testing.T) {
 	fn := func(element interface{}) interface{} {
 		return element.(int) * 2
 	}
-	s := Iterate(1, fn)
-	first := s.FindFirst()
+	fin := Iterate(1, fn).AndThen()
+	first := fin.FindFirst()
 	assert.Equal(t, 2, first.MustGet())
-	first = s.FindFirst()
+	first = fin.FindFirst()
 	assert.Equal(t, 4, first.MustGet())
-	first = s.FindFirst()
+	first = fin.FindFirst()
 	assert.Equal(t, 8, first.MustGet())
 
 	fn2 := IterateFunc(func(element int) int {
 		return element * 2
 	})
-	s = Iterate(1, fn2)
-	first = s.FindFirst()
+	fin = Iterate(1, fn2).AndThen()
+	first = fin.FindFirst()
 	assert.Equal(t, 2, first.MustGet())
-	first = s.FindFirst()
+	first = fin.FindFirst()
 	assert.Equal(t, 4, first.MustGet())
-	first = s.FindFirst()
+	first = fin.FindFirst()
 	assert.Equal(t, 8, first.MustGet())
+
+	// Panic on infinite Finisher
+	func() {
+		defer func() {
+			assert.Equal(t, ErrInfiniteFinisher, recover())
+		}()
+
+		fin.ToSlice()
+		assert.Fail(t, "Must panic")
+	}()
+
+	// Apply limit to make it finite
+	assert.Equal(t, []int{16, 32, 64, 128}, fin.Limit(4).ToSliceOf(0))
 }
 
 // ==== Other
-
-func TestStreamFirst(t *testing.T) {
-	s := Of()
-	first := s.FindFirst()
-	assert.True(t, first.IsEmpty())
-
-	s = Of(1)
-	first = s.FindFirst()
-	assert.Equal(t, 1, first.MustGet())
-	first = s.FindFirst()
-	assert.True(t, first.IsEmpty())
-
-	s = Of(1, 2)
-	first = s.FindFirst()
-	assert.Equal(t, 1, first.MustGet())
-	first = s.FindFirst()
-	assert.Equal(t, 2, first.MustGet())
-	first = s.FindFirst()
-	assert.True(t, first.IsEmpty())
-}
 
 func TestStreamIsIterable(t *testing.T) {
 	var (
@@ -109,23 +102,23 @@ func TestStreamDuplicates(t *testing.T) {
 func TestStreamFilter(t *testing.T) {
 	fn := func(element interface{}) bool { return element.(int) < 3 }
 	s := Of()
-	assert.Equal(t, []interface{}{}, s.Filter(fn).ToSlice())
+	assert.Equal(t, []interface{}{}, s.Filter(fn).AndThen().ToSlice())
 
 	s = Of(1, 2, 3)
-	assert.Equal(t, []interface{}{1, 2}, s.Filter(fn).ToSlice())
+	assert.Equal(t, []interface{}{1, 2}, s.Filter(fn).AndThen().ToSlice())
 
 	fn2 := gofuncs.Filter(func(element int) bool { return element < 3 })
 	s = Of(1, 2, 3)
-	assert.Equal(t, []int{1, 2}, s.Filter(fn2).ToSliceOf(0))
+	assert.Equal(t, []int{1, 2}, s.Filter(fn2).AndThen().ToSliceOf(0))
 }
 
 func TestStreamFilterNot(t *testing.T) {
 	fn := func(element interface{}) bool { return element.(int) < 3 }
 	s := Of()
-	assert.Equal(t, []interface{}{}, s.FilterNot(fn).ToSlice())
+	assert.Equal(t, []interface{}{}, s.FilterNot(fn).AndThen().ToSlice())
 
 	s = Of(1, 2, 3)
-	assert.Equal(t, []interface{}{3}, s.FilterNot(fn).ToSlice())
+	assert.Equal(t, []interface{}{3}, s.FilterNot(fn).AndThen().ToSlice())
 }
 
 func TestStreamLimit(t *testing.T) {
@@ -138,17 +131,17 @@ func TestStreamMap(t *testing.T) {
 		return strconv.Itoa(element.(int) * 2)
 	}
 	s := Of().Map(fn)
-	assert.Equal(t, []interface{}{}, s.ToSlice())
+	assert.Equal(t, []interface{}{}, s.AndThen().ToSlice())
 
 	s = Of(1).Map(fn)
-	assert.Equal(t, []interface{}{"2"}, s.ToSlice())
+	assert.Equal(t, []interface{}{"2"}, s.AndThen().ToSlice())
 
 	s = Of(1, 2).Map(fn)
-	assert.Equal(t, []interface{}{"2", "4"}, s.ToSlice())
+	assert.Equal(t, []interface{}{"2", "4"}, s.AndThen().ToSlice())
 
 	fn2 := gofuncs.Map(func(element int) string { return strconv.Itoa(element * 2) })
 	s = Of(1, 2).Map(fn2)
-	assert.Equal(t, []string{"2", "4"}, s.ToSliceOf(""))
+	assert.Equal(t, []string{"2", "4"}, s.AndThen().ToSliceOf(""))
 }
 
 func TestStreamPeek(t *testing.T) {
@@ -157,20 +150,20 @@ func TestStreamPeek(t *testing.T) {
 		elements = append(elements, element)
 	}
 	s := Of().Peek(fn)
-	assert.Equal(t, elements, []interface{}(nil), s.ToSlice())
+	assert.Equal(t, elements, []interface{}(nil), s.AndThen().ToSlice())
 
 	elements = nil
 	s = Of(1).Peek(fn)
-	assert.Equal(t, elements, []interface{}{1}, s.ToSlice())
+	assert.Equal(t, elements, []interface{}{1}, s.AndThen().ToSlice())
 
 	elements = nil
 	s = Of(1, 2).Peek(fn)
-	assert.Equal(t, elements, []interface{}{1, 2}, s.ToSlice())
+	assert.Equal(t, elements, []interface{}{1, 2}, s.AndThen().ToSlice())
 
 	var elements2 []int
 	fn2 := gofuncs.Consumer(func(element int) { elements2 = append(elements2, element) })
 	s = Of(1, 2).Peek(fn2)
-	assert.Equal(t, elements2, []int{1, 2}, s.ToSliceOf(0))
+	assert.Equal(t, elements2, []int{1, 2}, s.AndThen().ToSliceOf(0))
 }
 
 func TestStreamSkip(t *testing.T) {
@@ -442,21 +435,21 @@ func TestStreamToMap(t *testing.T) {
 
 func TestStreamToSlice(t *testing.T) {
 	s := Of()
-	assert.Equal(t, []interface{}{}, s.ToSlice())
+	assert.Equal(t, []interface{}{}, s.AndThen().ToSlice())
 
 	s = Of(1, 2)
-	assert.Equal(t, []interface{}{1, 2}, s.ToSlice())
+	assert.Equal(t, []interface{}{1, 2}, s.AndThen().ToSlice())
 
 	s = Of(1, 2).Filter(gofuncs.Filter(func(i int) bool { return i > 5 }))
-	assert.Equal(t, []interface{}{}, s.ToSlice())
+	assert.Equal(t, []interface{}{}, s.AndThen().ToSlice())
 }
 
 func TestStreamToSliceOf(t *testing.T) {
 	s := Of()
-	assert.Equal(t, []int{}, s.ToSliceOf(0))
+	assert.Equal(t, []int{}, s.AndThen().ToSliceOf(0))
 
 	s = Of(1, 2)
-	assert.Equal(t, []int{1, 2}, s.ToSliceOf(0))
+	assert.Equal(t, []int{1, 2}, s.AndThen().ToSliceOf(0))
 }
 
 // ==== Sequence

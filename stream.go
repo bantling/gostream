@@ -295,32 +295,21 @@ func (s Stream) Iter() *goiter.Iter {
 }
 
 // AndThen returns a Finisher, which performs additional post processing on the results of the transforms in this Stream.
+// If this Stream is infinite, the Finisher will be infinite.
 func (s Stream) AndThen() Finisher {
 	return Finisher{
 		source:    s,
 		transform: nil,
+		finite:    s.finite,
 	}
 }
 
-// FindFirst returns the optional first element of applying any tranforms to the Stream.
-// See Finisher.FindFirst().
-func (s Stream) FindFirst() gooptional.Optional {
-	return s.AndThen().FindFirst()
-}
-
-// ToSlice returns a slice of the transformed elements.
-// See Finisher.ToSlice().
-func (s Stream) ToSlice() []interface{} {
-	return s.AndThen().ToSlice()
-}
-
-// ToSliceOf returns a slice of the transformed elements.
-// See Finisher.ToSliceOf().
-func (s Stream) ToSliceOf(val interface{}) interface{} {
-	return s.AndThen().ToSliceOf(val)
-}
-
 // ==== Finisher
+
+const (
+	// ErrInfiniteFinisher is thrown when terminal methods are called on an infinite Finisher
+	ErrInfiniteFinisher = "The Finisher is infinite, no terminal methods can be called unless Limit is called first"
+)
 
 // Finisher does two things:
 // 1. Apply zero or more transforms that operate across multiple elements after any Stream transforms have been applied to each individual element of the Stream source
@@ -336,11 +325,19 @@ func (s Stream) ToSliceOf(val interface{}) interface{} {
 // - Only one parallel algorithm is needed
 // - No need for multiple passes or buffering
 //
-// If the Stream was constructed using the Iterate constructor function, then all terminal Finisher methods will panic unless the Limit(int) method is called first.
+// If the Stream is infinite constructor function, then all terminal Finisher methods will panic unless the Limit(int) method is called first.
 // This guarantees no infinite loop will occur in the terminal methods.
 type Finisher struct {
 	source    Stream
 	transform func(*goiter.Iter) *goiter.Iter
+	finite    bool
+}
+
+// panicIfInfinite panics if the Finisher is infinite
+func (fin Finisher) panicIfInfinite() {
+	if !fin.finite {
+		panic(ErrInfiniteFinisher)
+	}
 }
 
 // FindFirst returns the optional first element of applying any tranforms to the stream source.
@@ -374,6 +371,7 @@ func (fin Finisher) Transform(f func(*goiter.Iter) *goiter.Iter) Finisher {
 	return Finisher{
 		source:    fin.source,
 		transform: compose(fin.transform, f),
+		finite:    fin.finite,
 	}
 }
 
@@ -470,12 +468,13 @@ func (fin Finisher) Skip(n int) Finisher {
 }
 
 // Limit returns a new stream that only iterates the first n elements, ignoring the rest
+// If the Finsher is infinite, calling this method marks the finisher is finite.
 func (fin Finisher) Limit(n uint) Finisher {
 	var (
 		elementsRead uint
 	)
 
-	return fin.Transform(
+	newFin := fin.Transform(
 		func(it *goiter.Iter) *goiter.Iter {
 			return goiter.NewIter(
 				func() (interface{}, bool) {
@@ -489,9 +488,14 @@ func (fin Finisher) Limit(n uint) Finisher {
 			)
 		},
 	)
+
+	// Mark new Finisher as finite now that we have a limit
+	newFin.finite = true
+	return newFin
 }
 
 // Sorted returns a new stream with the values sorted by the provided comparator.
+// Panics if the Finisher is infinite.
 func (fin Finisher) Sorted(less func(element1, element2 interface{}) bool) Finisher {
 	var sortedIter *goiter.Iter
 	done := false
@@ -535,7 +539,10 @@ func (fin Finisher) ReverseSorted(less func(element1, element2 interface{}) bool
 
 // Iter returns an iterator of the elements in this Finisher.
 // Note that a Finisher can only be iterated once by a single *goiter.Iter instance.
+// Panics if the Finisher is infinite.
 func (fin Finisher) Iter() *goiter.Iter {
+	fin.panicIfInfinite()
+
 	it := fin.source.Iter()
 	if fin.transform != nil {
 		it = fin.transform(it)
@@ -552,10 +559,10 @@ func (fin Finisher) Iter() *goiter.Iter {
 	)
 }
 
-// AllMatch is true if the predicate matches all elements with short-circuit logic
+// AllMatch is true if the predicate matches all elements with short-circuit logic.
+// Panics if the Finisher is infinite.
 func (fin Finisher) AllMatch(f func(element interface{}) bool) bool {
 	allMatch := true
-
 	for it := fin.Iter(); it.Next(); {
 		if allMatch = f(it.Value()); !allMatch {
 			break
@@ -565,10 +572,10 @@ func (fin Finisher) AllMatch(f func(element interface{}) bool) bool {
 	return allMatch
 }
 
-// AnyMatch is true if the predicate matches any element with short-circuit logic
+// AnyMatch is true if the predicate matches any element with short-circuit logic.
+// Panics if the Finisher is infinite.
 func (fin Finisher) AnyMatch(f func(element interface{}) bool) bool {
 	anyMatch := false
-
 	for it := fin.Iter(); it.Next(); {
 		if anyMatch = f(it.Value()); anyMatch {
 			break
@@ -578,10 +585,10 @@ func (fin Finisher) AnyMatch(f func(element interface{}) bool) bool {
 	return anyMatch
 }
 
-// NoneMatch is true if the predicate matches none of the elements with short-circuit logic
+// NoneMatch is true if the predicate matches none of the elements with short-circuit logic.
+// Panics if the Finisher is infinite.
 func (fin Finisher) NoneMatch(f func(element interface{}) bool) bool {
 	noneMatch := true
-
 	for it := fin.Iter(); it.Next(); {
 		if noneMatch = !f(it.Value()); !noneMatch {
 			break
@@ -593,6 +600,7 @@ func (fin Finisher) NoneMatch(f func(element interface{}) bool) bool {
 
 // Average returns an optional average value.
 // The slice elements must be convertible to a float64.
+// Panics if the Finisher is infinite.
 func (fin Finisher) Average() gooptional.Optional {
 	var (
 		sum   float64
@@ -614,6 +622,7 @@ func (fin Finisher) Average() gooptional.Optional {
 
 // Sum returns an optional sum value.
 // The slice elements must be convertible to a float64.
+// Panics if the Finisher is infinite.
 func (fin Finisher) Sum() gooptional.Optional {
 	var (
 		sum    float64
@@ -632,10 +641,10 @@ func (fin Finisher) Sum() gooptional.Optional {
 	return gooptional.Of(sum)
 }
 
-// Count returns the count of all elements
+// Count returns the count of all elements.
+// Panics if the Finisher is infinite.
 func (fin Finisher) Count() int {
 	count := 0
-
 	for it := fin.Iter(); it.Next(); {
 		count++
 	}
@@ -643,10 +652,10 @@ func (fin Finisher) Count() int {
 	return count
 }
 
-// Last returns the optional last element
+// Last returns the optional last element.
+// Panics if the Finisher is infinite.
 func (fin Finisher) Last() gooptional.Optional {
 	var last interface{}
-
 	for it := fin.Iter(); it.Next(); {
 		last = it.Value()
 	}
@@ -654,10 +663,10 @@ func (fin Finisher) Last() gooptional.Optional {
 	return gooptional.Of(last)
 }
 
-// Max returns an optional maximum value according to the provided comparator
+// Max returns an optional maximum value according to the provided comparator.
+// Panics if the Finisher is infinite.
 func (fin Finisher) Max(less func(element1, element2 interface{}) bool) gooptional.Optional {
 	var max interface{}
-
 	if it := fin.Iter(); it.Next() {
 		max = it.Value()
 
@@ -673,10 +682,10 @@ func (fin Finisher) Max(less func(element1, element2 interface{}) bool) gooption
 	return gooptional.Of(max)
 }
 
-// Min returns an optional minimum value according to the provided comparator
+// Min returns an optional minimum value according to the provided comparator.
+// Panics if the Finisher is infinite.
 func (fin Finisher) Min(less func(element1, element2 interface{}) bool) gooptional.Optional {
 	var min interface{}
-
 	if it := fin.Iter(); it.Next() {
 		min = it.Value()
 
@@ -692,7 +701,8 @@ func (fin Finisher) Min(less func(element1, element2 interface{}) bool) gooption
 	return gooptional.Of(min)
 }
 
-// ForEach invokes a consumer with each element of the stream
+// ForEach invokes a consumer with each element of the stream.
+// Panics if the Finisher is infinite.
 func (fin Finisher) ForEach(f func(element interface{})) {
 	for it := fin.Iter(); it.Next(); {
 		f(it.Value())
@@ -705,12 +715,12 @@ func (fin Finisher) ForEach(f func(element interface{})) {
 // same type as the initial value, which can be any type.
 // If there are no elements in the strea, the result is the identity.
 // Otherwise, the result is f(f(identity, element1), element2)...
+// Panics if the Finisher is infinite.
 func (fin Finisher) Reduce(
 	identity interface{},
 	f func(accumulator interface{}, element2 interface{}) interface{},
 ) interface{} {
 	result := identity
-
 	for it := fin.Iter(); it.Next(); {
 		result = f(result, it.Value())
 	}
@@ -720,6 +730,7 @@ func (fin Finisher) Reduce(
 
 // GroupBy groups elements by executing the given function on each value to get a key,
 // and appending the element to the end of a slice associated with the key in the resulting map.
+// Panics if the Finisher is infinite.
 func (fin Finisher) GroupBy(f func(element interface{}) (key interface{})) map[interface{}][]interface{} {
 	m := map[interface{}][]interface{}{}
 
@@ -737,6 +748,7 @@ func (fin Finisher) GroupBy(f func(element interface{}) (key interface{})) map[i
 
 // ToMap returns a map of all elements by invoking the given function to get a key/value pair for the map.
 // It is up to the function to generate unique keys to prevent values from being overwritten.
+// Panics if the Finisher is infinite.
 func (fin Finisher) ToMap(f func(interface{}) (key interface{}, value interface{})) map[interface{}]interface{} {
 	m := map[interface{}]interface{}{}
 
@@ -751,6 +763,7 @@ func (fin Finisher) ToMap(f func(interface{}) (key interface{}, value interface{
 // ToMapOf returns a map of all elements, where the map key and value types are the same as the types of aKey and aValue.
 // EG, if aKey is an int and aVaue is a string, then a map[int]string is returned.
 // Panics if keys are not convertible to the key type or values are not convertible to the value type.
+// Panics if the Finisher is infinite.
 func (fin Finisher) ToMapOf(
 	f func(interface{}) (key interface{}, value interface{}),
 	aKey, aValue interface{},
@@ -772,7 +785,8 @@ func (fin Finisher) ToMapOf(
 	return m.Interface()
 }
 
-// ToSlice returns a slice of all elements
+// ToSlice returns a slice of all elements.
+// Panics if the Finisher is infinite.
 func (fin Finisher) ToSlice() []interface{} {
 	array := []interface{}{}
 
@@ -786,6 +800,7 @@ func (fin Finisher) ToSlice() []interface{} {
 // ToSliceOf returns a slice of all elements, where the slice elements are the same type as the type of elementVal.
 // EG, if elementVal is an int, an []int is returned.
 // Panics if elements are not convertible to the type of elementVal.
+// Panics if the Finisher is infinite.
 func (fin Finisher) ToSliceOf(elementVal interface{}) interface{} {
 	var (
 		elementTyp = reflect.TypeOf(elementVal)
@@ -799,7 +814,8 @@ func (fin Finisher) ToSliceOf(elementVal interface{}) interface{} {
 	return array.Interface()
 }
 
-// ToStream returns a stream of all elements
+// ToStream returns a stream of all elements.
+// Panics if the Finisher is infinite.
 func (fin Finisher) ToStream() Stream {
 	return Of(fin.ToSlice()...)
 }
@@ -812,7 +828,10 @@ func (fin Finisher) ToStream() Stream {
 // 2. NumberOfItemsPerGoroutine - numItems indicates the number of items each go routine processes
 // Either way, the results are ordered, and a new Stream is returned that iterates them.
 // If numItems is 0, it defaults to DefaultNumberOfParallelItems.
+// Panics if the Finisher is infinite.
 func (fin Finisher) ParallelToStream(numItems uint, flag ...ParallelFlags) Stream {
+	fin.panicIfInfinite()
+
 	theFlag := NumberOfGoroutines
 	if len(flag) > 0 {
 		theFlag = flag[0]
@@ -829,8 +848,11 @@ func (fin Finisher) ParallelToStream(numItems uint, flag ...ParallelFlags) Strea
 	return Of(data...)
 }
 
-// ParallelToSlice is the same as Parallel, except that it returns the data as a slice
+// ParallelToSlice is the same as Parallel, except that it returns the data as a slice.
+// Panics if the Finisher is infinite.
 func (fin Finisher) ParallelToSlice(numItems uint, flag ...ParallelFlags) []interface{} {
+	fin.panicIfInfinite()
+
 	theFlag := NumberOfGoroutines
 	if len(flag) > 0 {
 		theFlag = flag[0]
@@ -848,7 +870,10 @@ func (fin Finisher) ParallelToSlice(numItems uint, flag ...ParallelFlags) []inte
 }
 
 // ParallelToSliceOf is the same as ParallelSlice, except that it returns the data as a slice whose type matches the element value given.
+// Panics if the Finisher is infinite.
 func (fin Finisher) ParallelToSliceOf(elementValue interface{}, numItems uint, flag ...ParallelFlags) interface{} {
+	fin.panicIfInfinite()
+
 	theFlag := NumberOfGoroutines
 	if len(flag) > 0 {
 		theFlag = flag[0]
