@@ -4,6 +4,7 @@ package gostream
 
 import (
 	//	"fmt"
+	"math/big"
 	"strconv"
 	"testing"
 
@@ -206,26 +207,47 @@ func TestStreamSorted(t *testing.T) {
 	s = Of(2, 1).AndThen().Sorted(gofuncs.SortFunc(fn2))
 	assert.Equal(t, []int{1, 2}, s.ToSliceOf(0))
 
+	s = Of(2, 1).AndThen().Sorted(gofuncs.SortFunc(fn2))
+	assert.Equal(t, []uint{1, 2}, s.ToSliceOf(uint(0)))
+
 	s = Of(2, 1).AndThen().Sorted(gofuncs.IntSortFunc)
 	assert.Equal(t, []int{1, 2}, s.ToSliceOf(0))
 
-	s = Of(int8(2), int8(1)).Map(gofuncs.ConvertTo(0)).AndThen().Sorted(gofuncs.IntSortFunc)
+	s = Of(int8(2), int8(1)).AndThen().Sorted(gofuncs.IntSortFunc)
 	assert.Equal(t, []int8{1, 2}, s.ToSliceOf(int8(0)))
 
 	s = Of(uint(2), uint(1)).AndThen().Sorted(gofuncs.UintSortFunc)
 	assert.Equal(t, []uint{1, 2}, s.ToSliceOf(uint(0)))
 
-	s = Of(uint8(2), uint8(1)).Map(gofuncs.ConvertTo(uint(0))).AndThen().Sorted(gofuncs.UintSortFunc)
+	s = Of(uint8(2), uint8(1)).AndThen().Sorted(gofuncs.UintSortFunc)
 	assert.Equal(t, []uint8{1, 2}, s.ToSliceOf(uint8(0)))
 
-	s = Of(float32(2), float32(1)).Map(gofuncs.ConvertTo(0.0)).AndThen().Sorted(gofuncs.FloatSortFunc)
+	s = Of(float32(2), float32(1)).AndThen().Sorted(gofuncs.FloatSortFunc)
 	assert.Equal(t, []float32{1, 2}, s.ToSliceOf(float32(0)))
 
 	s = Of(float64(2), float64(1)).AndThen().Sorted(gofuncs.FloatSortFunc)
 	assert.Equal(t, []float64{1, 2}, s.ToSliceOf(0.0))
 
+	s = Of(complex64(1+2i), complex64(2+3i)).AndThen().Sorted(gofuncs.ComplexSortFunc)
+	assert.Equal(t, []complex64{(1 + 2i), (2 + 3i)}, s.ToSliceOf(complex64(0)))
+
+	s = Of(complex128(2+3i), complex128(1+2i)).AndThen().Sorted(gofuncs.ComplexSortFunc)
+	assert.Equal(t, []complex128{(1 + 2i), (2 + 3i)}, s.ToSliceOf(complex128(0)))
+
 	s = Of("b", "a").AndThen().Sorted(gofuncs.StringSortFunc)
 	assert.Equal(t, []string{"a", "b"}, s.ToSliceOf(""))
+
+	s = Of('b', 'a').AndThen().Sorted(gofuncs.StringSortFunc)
+	assert.Equal(t, []string{"a", "b"}, s.ToSliceOf(""))
+
+	s = Of(big.NewInt(2), big.NewInt(1)).AndThen().Sorted(gofuncs.BigIntSortFunc)
+	assert.Equal(t, []*big.Int{big.NewInt(1), big.NewInt(2)}, s.ToSliceOf((*big.Int)(nil)))
+
+	s = Of(big.NewRat(2, 3), big.NewRat(1, 2)).AndThen().Sorted(gofuncs.BigRatSortFunc)
+	assert.Equal(t, []*big.Rat{big.NewRat(1, 2), big.NewRat(2, 3)}, s.ToSliceOf((*big.Rat)(nil)))
+
+	s = Of(big.NewFloat(2.0), big.NewFloat(1.0)).AndThen().Sorted(gofuncs.BigFloatSortFunc)
+	assert.Equal(t, []*big.Float{big.NewFloat(1.0), big.NewFloat(2.0)}, s.ToSliceOf((*big.Float)(nil)))
 }
 
 func TestStreamReverseSorted(t *testing.T) {
